@@ -26,6 +26,34 @@ def get_new_candidates(
     return candidates_exponent, candidates_exponent_no_phase, candidates
 
 
+def proximial_gradient_update(
+    filter_estimate,
+    cov_matrix_est,
+    cov_vector,
+    num_pitch_candidates,
+    max_num_harmonics,
+    penalty_factor_1,
+    penalty_factor_2,
+    max_gradient_iterations,
+    step_size
+):
+    harmonic_amplitudes = np.ones((num_pitch_candidates, 1))
+    for iter_idx in range(max_gradient_iterations):
+        # Calculate gradient
+        gradient = -cov_vector + cov_matrix_est @ filter_estimate
+        new_filter_estimate = filter_estimate - step_size * gradient
+        new_filter_estimate = soft_threshold(new_filter_estimate, penalty_factor_1 * step_size)
+
+        # TODO: CONTINUE HERE
+    return filter_estimate
+
+
+def soft_threshold(vector, penalty_factor):
+
+    thresh_vector = max((np.abs(vector) - penalty_factor).max(), 0)
+    return (thresh_vector / (thresh_vector + penalty_factor)) * vector
+
+
 def PEARLS(
     signal,
     forgetting_factor,
@@ -137,27 +165,32 @@ def PEARLS(
 
         sample = signal[iter_idx]
         
-
-
         # Update covariance estimate
         cov_matrix_est = forgetting_factor * cov_matrix_est + candidate * candidate.conj().T
         cov_vector = forgetting_factor * cov_vector + candidate * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
-
+        # update_penalties( ... )
         # SKIP DO ACTIVE UPDATE
-
+        # update_actives(...)
 
 
         # VERIFIED UP TO THIS POINT
-        breakpoint()
 
         # DO THE GOOD STUFF :D
 
-
-
-        # TODO: Continue with alg!
-
+        # Update filter estimates
+        filter_estimate = proximial_gradient_update(
+            filter_estimate,
+            cov_matrix_est,
+            cov_vector,
+            num_pitch_candidates,
+            max_num_harmonics,
+            penalty_factor_1,
+            penalty_factor_2,
+            max_gradient_iterations,
+            step_size
+        )
 
 
 
@@ -168,3 +201,4 @@ def PEARLS(
     filter_history = []
     candidate_frequency_history = []
     return filter_history, candidate_frequency_history, var
+              
