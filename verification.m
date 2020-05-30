@@ -5,10 +5,10 @@
 %% CONSTANTS AND DATA
 clear
 
-bach_data = audioread("data/bach_air.wav");
+bach_data = audioread("data/bach_air.wav", 'native');
 d = bach_data(:,1);
 N = 100;
-d = d((1:N));
+d = double(d(10001:10000+N));
 
 lambda = 0.995;
 
@@ -21,7 +21,7 @@ fdist = 50;
 
 
 
-%% PEARLS START
+% PEARLS START
 
 % Set to zero if no dictionary updated should be performed
 doDictionaryLearning = 1;
@@ -74,6 +74,7 @@ Delta = floor(log(0.01)/log(lambda));
 
 %%%%%%%%%%%%%%%%%%% INITIALIZE ALL VARIABLES %%%%%%%%%%%%%%
 xn = A(1,:)';
+
 dn = d(1);
 Rn = xn*xn';
 rn = xn*dn;
@@ -98,8 +99,8 @@ activeIndices = 1:P*Lmax;
 indexMatrix = reshape(activeIndices,Lmax,P);
 
 
-%% MAIN LOOP
-
+% MAIN LOOP
+%
 for n=1:N
     if doPrint && mod(n,100)==0
         fprintf('%d av %d\n',n,N)
@@ -131,13 +132,11 @@ for n=1:N
         A = exp(1i*AInner);
     end
     
-    break;
-    
     dn = d(n);
     Rn = lambda*Rn + bsxfun(@times, xn,xn');
     rn = lambda*rn + xn*dn;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    break;
 
 end
     

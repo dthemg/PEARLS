@@ -84,13 +84,13 @@ def PEARLS(
 
     ##### INITIALIZE VARIABLES #####
     # Get first candidate vector
-    candidate = candidates[0, :][np.newaxis]
+    candidate = candidates[0, :][np.newaxis].T
 
     # Initial estimate of covariance matrix (R(t))
     cov_matrix_est = candidate * candidate.conj().T
 
     # Initial value of candidate value vector (r(t))
-    cov_vector = signal[0] * np.conj(candidate)
+    cov_vector = signal[0] * candidate
 
     # Initialize filter weights
     filter_estimate = np.zeros((num_filter_coeffs, 1))  # Better variable name?
@@ -137,21 +137,25 @@ def PEARLS(
 
         sample = signal[iter_idx]
         
-        # VERIFIED UP TO THIS POINT... BREAKS LATER ON
-        breakpoint()
 
 
         # Update covariance estimate
-        cov_matrix_est = forgetting_factor * cov_matrix_est + candidate * np.transpose(
-            candidate
-        ) # ALSO TAKE CONJUGATE?
+        cov_matrix_est = forgetting_factor * cov_matrix_est + candidate * candidate.conj().T
         cov_vector = forgetting_factor * cov_vector + candidate * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
 
         # SKIP DO ACTIVE UPDATE
 
+
+
+        # VERIFIED UP TO THIS POINT
+        breakpoint()
+
         # DO THE GOOD STUFF :D
+
+
+
         # TODO: Continue with alg!
 
 
