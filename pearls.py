@@ -19,7 +19,13 @@ def get_new_candidates(
     time_vector, vector_length, frequency_matrix, sampling_frequency
 ):
     # Flatten MatLab-style
-    candidates_exponent = time_vector.reshape(vector_length, 1) * frequency_matrix.flatten('F') * 2 * np.pi/ sampling_frequency
+    candidates_exponent = (
+        time_vector.reshape(vector_length, 1)
+        * frequency_matrix.flatten("F")
+        * 2
+        * np.pi
+        / sampling_frequency
+    )
 
     candidates_exponent_no_phase = candidates_exponent
     candidates = np.exp(1j * candidates_exponent)
@@ -27,7 +33,7 @@ def get_new_candidates(
 
 
 def proximial_gradient_update(
-    filter_estimate,
+    coeffs,
     cov_matrix_est,
     cov_vector,
     num_pitch_candidates,
@@ -35,17 +41,40 @@ def proximial_gradient_update(
     penalty_factor_1,
     penalty_factor_2,
     max_gradient_iterations,
-    step_size
+    step_size,
 ):
-    harmonic_amplitudes = np.ones((num_pitch_candidates, 1))
-    for iter_idx in range(max_gradient_iterations):
+    first_harmonic_amplitudes = np.ones((num_pitch_candidates, 1))
+    for _ in range(max_gradient_iterations):
         # Calculate gradient
-        gradient = -cov_vector + cov_matrix_est @ filter_estimate
-        new_filter_estimate = filter_estimate - step_size * gradient
-        new_filter_estimate = soft_threshold(new_filter_estimate, penalty_factor_1 * step_size)
+        gradient = -cov_vector + cov_matrix_est @ coeffs
+        new_coeffs = coeffs - step_size * gradient
+        new_coeffs = soft_threshold(new_coeffs, penalty_factor_1 * step_size)
 
-        # TODO: CONTINUE HERE
-    return filter_estimate
+        # Update each pitch candidate
+        for pitch_idx in range(num_pitch_candidates):
+            harmonic_idxs = np.arange(
+                pitch_idx * max_num_harmonics, (pitch_idx + 1) * max_num_harmonics
+            )
+            harmonic_coeffs = new_coeffs[harmonic_idxs]
+            pitch_penalty_factor_2 = penalty_factor_2 * max(
+                1, min(1000, 1 / (abs(first_harmonic_amplitudes[pitch_idx]) + 1e-5))
+            )
+            factor = max(
+                np.linalg.norm(harmonic_coeffs, 2)
+                - pitch_penalty_factor_2 * (step_size ** 2),
+                0,
+            )
+            coeffs[harmonic_idxs] = (
+                harmonic_coeffs
+                * factor
+                / (factor + pitch_penalty_factor_2 * (step_size ** 2))
+            )
+
+        first_harmonic_amplitudes = coeffs[
+            0 : num_pitch_candidates * max_num_harmonics : max_num_harmonics
+        ]
+
+    return coeffs
 
 
 def soft_threshold(vector, penalty_factor):
@@ -85,12 +114,15 @@ def PEARLS(
 
     ##### INITIALIZE CANDIDATES #####
     # Initialize frequency candidates
-    pitch_candidates = np.arange(minimum_pitch, maximum_pitch+1, init_freq_resolution)
+    pitch_candidates = np.arange(minimum_pitch, maximum_pitch + 1, init_freq_resolution)
     num_pitch_candidates = len(pitch_candidates)
     num_filter_coeffs = num_pitch_candidates * max_num_harmonics
 
     # Define the frequency matrix
-    frequency_matrix = np.arange(1, max_num_harmonics + 1).reshape(max_num_harmonics, 1) * pitch_candidates
+    frequency_matrix = (
+        np.arange(1, max_num_harmonics + 1).reshape(max_num_harmonics, 1)
+        * pitch_candidates
+    )
     # Define time indexes
     time = np.arange(signal_length)
 
@@ -121,18 +153,17 @@ def PEARLS(
     cov_vector = signal[0] * candidate
 
     # Initialize filter weights
-    filter_estimate = np.zeros((num_filter_coeffs, 1))  # Better variable name?
+    coeffs_estimate = np.zeros((num_filter_coeffs, 1))  # Better variable name?
     rls_filter = np.zeros((num_filter_coeffs, 1))
     rls_filter_history = np.zeros((num_filter_coeffs, signal_length))
 
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
 
-
     ##### PERFORM ALGORITHM #####
 
-
     for iter_idx, signal_value in enumerate(signal):
+        print("SAMPLE NUMBER:", iter_idx)
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
 
@@ -140,9 +171,9 @@ def PEARLS(
         history_idx = iter_idx % history_len
 
         # Vector of time frequency candidates
-        candidate = candidates[iter_idx, :][np.newaxis].T # Feel like this should be after...
-        
-
+        candidate = candidates[iter_idx, :][
+            np.newaxis
+        ].T  # Feel like this should be after...
 
         # Renew candidate matrix if history is filled
         if history_idx == 0:
@@ -164,9 +195,11 @@ def PEARLS(
             )
 
         sample = signal[iter_idx]
-        
+
         # Update covariance estimate
-        cov_matrix_est = forgetting_factor * cov_matrix_est + candidate * candidate.conj().T
+        cov_matrix_est = (
+            forgetting_factor * cov_matrix_est + candidate * candidate.conj().T
+        )
         cov_vector = forgetting_factor * cov_vector + candidate * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
@@ -174,14 +207,13 @@ def PEARLS(
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
 
-
         # VERIFIED UP TO THIS POINT
 
         # DO THE GOOD STUFF :D
 
         # Update filter estimates
-        filter_estimate = proximial_gradient_update(
-            filter_estimate,
+        coeffs_estimate = proximial_gradient_update(
+            coeffs_estimate,
             cov_matrix_est,
             cov_vector,
             num_pitch_candidates,
@@ -189,10 +221,8 @@ def PEARLS(
             penalty_factor_1,
             penalty_factor_2,
             max_gradient_iterations,
-            step_size
+            step_size,
         )
-
-
 
     # var = candidate, candidates
 
@@ -201,4 +231,3 @@ def PEARLS(
     filter_history = []
     candidate_frequency_history = []
     return filter_history, candidate_frequency_history, var
-              
