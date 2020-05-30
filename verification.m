@@ -1,13 +1,14 @@
 
 
-
-
 %% AM I DOING THINGS RIGHT??
 
-%% CONSTANTS
+%% CONSTANTS AND DATA
 clear
+
+bach_data = audioread("data/bach_air.wav");
+d = bach_data(:,1);
 N = 100;
-d = sin((1:N)/10);
+d = d((1:N));
 
 lambda = 0.995;
 
@@ -17,6 +18,8 @@ fs = 44100;
 fmin = 50;
 fmax = 500;
 fdist = 50;
+
+
 
 %% PEARLS START
 
@@ -107,8 +110,6 @@ for n=1:N
     fpgridHist(:,n) = fpgrid(:);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    
-    
     %%%%%%%%%%%%%%%%%%%%%%% NEW SAMPLE %%%%%%%%%%%%%%%%%%%%%%
     samplesLeft = (dictionaryLength-mod(n,dictionaryLength));
     if samplesLeft == dictionaryLength
@@ -116,7 +117,7 @@ for n=1:N
     else
         sampleIndex = mod(n,dictionaryLength);
     end
-    xn = A(sampleIndex,:)';
+    xn = A(sampleIndex,:)';    
     
     if samplesLeft == dictionaryLength
         AOld = A;
@@ -129,6 +130,8 @@ for n=1:N
         AInnerNoPhase = AInner;
         A = exp(1i*AInner);
     end
+    
+    break;
     
     dn = d(n);
     Rn = lambda*Rn + bsxfun(@times, xn,xn');

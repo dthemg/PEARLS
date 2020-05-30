@@ -101,10 +101,8 @@ def PEARLS(
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
 
 
-    # VERIFIED UP TO THIS POINT... BREAKS LATER ON
     ##### PERFORM ALGORITHM #####
 
-    breakpoint()
 
     for iter_idx, signal_value in enumerate(signal):
         # Store current estimates
@@ -113,15 +111,17 @@ def PEARLS(
         ##### SAMPLE SELECTION #####
         history_idx = iter_idx % history_len
 
-        candidate = candidates[:, 0]
-        candidate = candidate.reshape(len(candidate), 1)
+        # Vector of time frequency candidates
+        candidate = candidates[iter_idx, :][np.newaxis].T # Feel like this should be after...
+        
+
 
         # Renew candidate matrix if history is filled
         if history_idx == 0:
             prev_candidates = candidates
             upper_time_idx = min(signal_length, iter_idx + history_len)
             time_history = time[iter_idx:upper_time_idx]
-            # If last "batch"
+            # If end of signal
             if upper_time_idx - history_idx < history_len:
                 time_history = np.append(
                     time_history, np.zeros(history_len - (upper_time_idx - smaple_idx))
@@ -136,6 +136,10 @@ def PEARLS(
             )
 
         sample = signal[iter_idx]
+        
+        # VERIFIED UP TO THIS POINT... BREAKS LATER ON
+        breakpoint()
+
 
         # Update covariance estimate
         cov_matrix_est = forgetting_factor * cov_matrix_est + candidate * np.transpose(
