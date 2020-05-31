@@ -6,8 +6,13 @@ import numpy as np
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
-# # Matlab code translation...
 
+"""
+CURRENT STATUS:
+Ok, so something is up with the covariance matrix.
+Could be something linked to dtypes being cast from 
+complex to real values, need to look into
+"""
 
 # Create window length from forgetting factor
 def get_window_length(forgetting_factor):
@@ -32,6 +37,7 @@ def get_new_candidates(
     return candidates_exponent, candidates_exponent_no_phase, candidates
 
 
+# Do gradient descent for coefficients
 def proximial_gradient_update(
     coeffs,
     cov_matrix,
@@ -77,12 +83,13 @@ def proximial_gradient_update(
     return coeffs
 
 
+# Thresholding function used in gradient descent
 def soft_threshold(vector, penalty_factor):
-
     thresh_vector = max((np.abs(vector) - penalty_factor).max(), 0)
     return (thresh_vector / (thresh_vector + penalty_factor)) * vector
 
 
+# Update RLS filters 
 def rls_update(
     rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
 ):
@@ -90,8 +97,8 @@ def rls_update(
     penalty_matrix = smoothness_factor * np.eye(max_num_harmonics)
 
     all_candidates_idxs = range(num_pitch_candidates * max_num_harmonics)
-
-    # DEBUG THIS SECTION...
+    
+    breakpoint()
 
     for pitch_idx in range(num_pitch_candidates):
         harmonic_idxs = np.in1d(
@@ -243,6 +250,8 @@ def PEARLS(
         # update_penalties( ... )
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
+
+        a = 4
 
         ##### UPDATE COEFFICIENTS ######
         coeffs_estimate = proximial_gradient_update(
