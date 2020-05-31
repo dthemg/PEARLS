@@ -34,7 +34,7 @@ def get_new_candidates(
 
 def proximial_gradient_update(
     coeffs,
-    cov_matrix_est,
+    cov_matrix,
     cov_vector,
     num_pitch_candidates,
     max_num_harmonics,
@@ -46,7 +46,7 @@ def proximial_gradient_update(
     first_harmonic_amplitudes = np.ones((num_pitch_candidates, 1))
     for _ in range(max_gradient_iterations):
         # Calculate gradient
-        gradient = -cov_vector + cov_matrix_est @ coeffs
+        gradient = -cov_vector + cov_matrix @ coeffs
         new_coeffs = coeffs - step_size * gradient
         new_coeffs = soft_threshold(new_coeffs, penalty_factor_1 * step_size)
 
@@ -81,6 +81,45 @@ def soft_threshold(vector, penalty_factor):
 
     thresh_vector = max((np.abs(vector) - penalty_factor).max(), 0)
     return (thresh_vector / (thresh_vector + penalty_factor)) * vector
+
+
+def rls_update(
+    rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
+):
+    num_pitch_candidates = int(rls_filter.size / max_num_harmonics)
+    penalty_matrix = smoothness_factor * np.eye(max_num_harmonics)
+
+    all_candidates_idxs = range(num_pitch_candidates * max_num_harmonics)
+
+    # DEBUG THIS SECTION...
+
+    for pitch_idx in range(num_pitch_candidates):
+        harmonic_idxs = np.in1d(
+            all_candidates_idxs,
+            np.arange(
+                pitch_idx * max_num_harmonics, (pitch_idx + 1) * max_num_harmonics
+            ),
+        )
+        harmonic_rows_cov = cov_matrix[harmonic_idxs, :]
+        harmonic_others = harmonic_rows_cov[:, ~harmonic_idxs]
+        harmonic_pitch = harmonic_rows_cov[:, harmonic_idxs]
+
+        harmonic_vector_cov = cov_vector[harmonic_idxs]
+        harmonic_vector_cov = harmonic_vector_cov - np.dot(
+            harmonic_others, rls_filter[harmonic_idxs]
+        )
+
+        harmonic_matrix_tilde = harmonic_rows_cov + penalty_matrix
+        harmonic_vector_tilde = (
+            harmonic_vector_cov + smoothness_factor * rls_filter[harmonic_idxs]
+        )
+
+        # Which function should be used? lstsq finds minimal norm solution...
+        rls_filter[harmonic_idxs] = np.linalg.lstsq(
+            harmonic_matrix_tilde, harmonic_vector_tilde
+        )
+
+    return rls_filter
 
 
 def PEARLS(
@@ -147,7 +186,7 @@ def PEARLS(
     candidate = candidates[0, :][np.newaxis].T
 
     # Initial estimate of covariance matrix (R(t))
-    cov_matrix_est = candidate * candidate.conj().T
+    cov_matrix = candidate * candidate.conj().T
 
     # Initial value of candidate value vector (r(t))
     cov_vector = signal[0] * candidate
@@ -197,9 +236,7 @@ def PEARLS(
         sample = signal[iter_idx]
 
         # Update covariance estimate
-        cov_matrix_est = (
-            forgetting_factor * cov_matrix_est + candidate * candidate.conj().T
-        )
+        cov_matrix = forgetting_factor * cov_matrix + candidate * candidate.conj().T
         cov_vector = forgetting_factor * cov_vector + candidate * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
@@ -207,14 +244,10 @@ def PEARLS(
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
 
-        # VERIFIED UP TO THIS POINT
-
-        # DO THE GOOD STUFF :D
-
-        # Update filter estimates
+        ##### UPDATE COEFFICIENTS ######
         coeffs_estimate = proximial_gradient_update(
             coeffs_estimate,
-            cov_matrix_est,
+            cov_matrix,
             cov_vector,
             num_pitch_candidates,
             max_num_harmonics,
@@ -223,6 +256,14 @@ def PEARLS(
             max_gradient_iterations,
             step_size,
         )
+
+        ##### UPDATE RLS FILTER #####
+        # 100 -> 10
+        start_update_rls_idx = 10  # Should be 100
+        if iter_idx > start_update_rls_idx:
+            rls_filter_new = rls_update(
+                rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
+            )
 
     # var = candidate, candidates
 
