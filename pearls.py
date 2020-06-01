@@ -89,7 +89,7 @@ def soft_threshold(vector, penalty_factor):
     return (thresh_vector / (thresh_vector + penalty_factor)) * vector
 
 
-# Update RLS filters 
+# Update RLS filters
 def rls_update(
     rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
 ):
@@ -97,8 +97,6 @@ def rls_update(
     penalty_matrix = smoothness_factor * np.eye(max_num_harmonics)
 
     all_candidates_idxs = range(num_pitch_candidates * max_num_harmonics)
-    
-    breakpoint()
 
     for pitch_idx in range(num_pitch_candidates):
         harmonic_idxs = np.in1d(
@@ -210,6 +208,7 @@ def PEARLS(
 
     for iter_idx, signal_value in enumerate(signal):
         print("SAMPLE NUMBER:", iter_idx)
+
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
 
@@ -217,9 +216,9 @@ def PEARLS(
         history_idx = iter_idx % history_len
 
         # Vector of time frequency candidates
-        candidate = candidates[iter_idx, :][
-            np.newaxis
-        ].T  # Feel like this should be after...
+        candidate = (
+            candidates[iter_idx, :][np.newaxis].conj().T
+        )  # Feel like this should be after...
 
         # Renew candidate matrix if history is filled
         if history_idx == 0:
@@ -268,7 +267,7 @@ def PEARLS(
 
         ##### UPDATE RLS FILTER #####
         # 100 -> 10
-        start_update_rls_idx = 10  # Should be 100
+        start_update_rls_idx = 9  # Should be 100 - 1
         if iter_idx > start_update_rls_idx:
             rls_filter_new = rls_update(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
