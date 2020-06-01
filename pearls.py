@@ -9,9 +9,8 @@ import numpy as np
 
 """
 CURRENT STATUS:
-Ok, so something is up with the covariance matrix.
-Could be something linked to dtypes being cast from 
-complex to real values, need to look into
+RLS update seems to work, but code breaks at iter_idx 20. 
+Probably something minor...
 """
 
 # Create window length from forgetting factor
@@ -111,17 +110,17 @@ def rls_update(
 
         harmonic_vector_cov = cov_vector[harmonic_idxs]
         harmonic_vector_cov = harmonic_vector_cov - np.dot(
-            harmonic_others, rls_filter[harmonic_idxs]
+            harmonic_others, rls_filter[~harmonic_idxs]
         )
 
-        harmonic_matrix_tilde = harmonic_rows_cov + penalty_matrix
-        harmonic_vector_tilde = (
-            harmonic_vector_cov + smoothness_factor * rls_filter[harmonic_idxs]
+        harmonic_matrix_tilde = harmonic_pitch + penalty_matrix
+        harmonic_vector_tilde = harmonic_vector_cov + np.dot(
+            smoothness_factor, rls_filter[harmonic_idxs]
         )
 
         # Which function should be used? lstsq finds minimal norm solution...
-        rls_filter[harmonic_idxs] = np.linalg.lstsq(
-            harmonic_matrix_tilde, harmonic_vector_tilde
+        rls_filter[harmonic_idxs], _, _, _ = np.linalg.lstsq(
+            harmonic_matrix_tilde, harmonic_vector_tilde, rcond=None
         )
 
     return rls_filter
@@ -138,7 +137,7 @@ def PEARLS(
     init_freq_resolution,
 ):
     var = 1
-
+    complex_dtype = "complex_"
     signal_length = len(signal)
 
     ##### ADDITIONAL CONSTANTS #####
@@ -197,9 +196,11 @@ def PEARLS(
     cov_vector = signal[0] * candidate
 
     # Initialize filter weights
-    coeffs_estimate = np.zeros((num_filter_coeffs, 1))  # Better variable name?
-    rls_filter = np.zeros((num_filter_coeffs, 1))
-    rls_filter_history = np.zeros((num_filter_coeffs, signal_length))
+    coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
+    rls_filter = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
+    rls_filter_history = np.zeros(
+        (num_filter_coeffs, signal_length), dtype=complex_dtype
+    )
 
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
@@ -214,11 +215,6 @@ def PEARLS(
 
         ##### SAMPLE SELECTION #####
         history_idx = iter_idx % history_len
-
-        # Vector of time frequency candidates
-        candidate = (
-            candidates[iter_idx, :][np.newaxis].conj().T
-        )  # Feel like this should be after...
 
         # Renew candidate matrix if history is filled
         if history_idx == 0:
@@ -238,6 +234,12 @@ def PEARLS(
             ) = get_new_candidates(
                 time_history, history_len, frequency_matrix, sampling_frequency
             )
+
+        # Vector of time frequency candidates
+        # TODO: CONTINUE HERE!!! CURRENTLY BREAKS AT ITER 20
+        candidate = (
+            candidates[iter_idx, :][np.newaxis].conj().T
+        )  # Feel like this should be after...
 
         sample = signal[iter_idx]
 
