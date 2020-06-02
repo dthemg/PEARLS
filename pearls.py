@@ -238,7 +238,7 @@ def PEARLS(
         # Vector of time frequency candidates
         # TODO: CONTINUE HERE!!! CURRENTLY BREAKS AT ITER 20
         candidate = (
-            candidates[iter_idx, :][np.newaxis].conj().T
+            candidates[history_idx, :][np.newaxis].conj().T
         )  # Feel like this should be after...
 
         sample = signal[iter_idx]
@@ -271,7 +271,7 @@ def PEARLS(
         # 100 -> 10
         start_update_rls_idx = 9  # Should be 100 - 1
         if iter_idx > start_update_rls_idx:
-            rls_filter_new = rls_update(
+            rls_filter = rls_update(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
             )
 
