@@ -2,15 +2,26 @@
 # To add a new markdown cell, type ' [markdown]'
 
 import numpy as np
-
+from tqdm import tqdm
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
 
 """
 CURRENT STATUS:
-RLS update seems to work, but code breaks at iter_idx 20. 
-Probably something minor...
+TO DO:
+* Penalty parameter updates
+* Re-structure code better
+* Sketch on visualization
+* Do active block updates
+
+IN PROGRESS:
+* Dictionary learning scheme
+
+DONE:
+* Initialization
+* Proximal gradient descent
+* RLS update
 """
 
 # Create window length from forgetting factor
@@ -207,8 +218,8 @@ def PEARLS(
 
     ##### PERFORM ALGORITHM #####
 
-    for iter_idx, signal_value in enumerate(signal):
-        print("SAMPLE NUMBER:", iter_idx)
+    for iter_idx, signal_value in enumerate(tqdm(signal)):
+        #print("SAMPLE NUMBER:", iter_idx)
 
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
@@ -252,8 +263,6 @@ def PEARLS(
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
 
-        a = 4
-
         ##### UPDATE COEFFICIENTS ######
         coeffs_estimate = proximial_gradient_update(
             coeffs_estimate,
@@ -274,6 +283,12 @@ def PEARLS(
             rls_filter = rls_update(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
             )
+
+
+        ##### DICTIONARY LEARNING #####
+        start_dictionary_learning_idx = 40
+        if iter_idx > start_dictionary_learning_idx and history_idx == 0: # Check that this is right...
+            print("Dictionary learning!")
 
     # var = candidate, candidates
 
