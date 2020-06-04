@@ -150,6 +150,7 @@ def PEARLS(
     var = 1
     complex_dtype = "complex_"
     signal_length = len(signal)
+    update_dictionary_interval = 40
 
     ##### ADDITIONAL CONSTANTS #####
     # Number of samples for dictionary update
@@ -218,7 +219,7 @@ def PEARLS(
 
     ##### PERFORM ALGORITHM #####
 
-    for iter_idx, signal_value in enumerate(tqdm(signal)):
+    for iter_idx, signal_value in enumerate(signal):
         #print("SAMPLE NUMBER:", iter_idx)
 
         # Store current estimates
@@ -286,9 +287,10 @@ def PEARLS(
 
 
         ##### DICTIONARY LEARNING #####
-        start_dictionary_learning_idx = 40
-        if iter_idx > start_dictionary_learning_idx and history_idx == 0: # Check that this is right...
+        start_dictionary_learning_idx = 30
+        if iter_idx > start_dictionary_learning_idx and iter_idx % update_dictionary_interval == 0: # Check that this is right...
             print("Dictionary learning!")
+            print(f"history idx: {history_idx}, iter_idx: {iter_idx}")
 
     # var = candidate, candidates
 
