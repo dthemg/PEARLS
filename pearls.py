@@ -13,7 +13,7 @@ TO DO:
 * Penalty parameter updates
 * Re-structure code better
 * Sketch on visualization
-* Do active block updates
+* Active block updates
 
 IN PROGRESS:
 * Dictionary learning scheme
@@ -154,7 +154,7 @@ def PEARLS(
 
     ##### ADDITIONAL CONSTANTS #####
     # Number of samples for dictionary update
-    num_samples_pitch = np.floor(45 * 1e-3 * sampling_frequency)
+    num_samples_pitch = 40  # np.floor(45 * 1e-3 * sampling_frequency)
 
     # Length of dictionary
     history_len = 20
@@ -220,7 +220,7 @@ def PEARLS(
     ##### PERFORM ALGORITHM #####
 
     for iter_idx, signal_value in enumerate(signal):
-        #print("SAMPLE NUMBER:", iter_idx)
+        # print("SAMPLE NUMBER:", iter_idx)
 
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
@@ -285,14 +285,23 @@ def PEARLS(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
             )
 
-
         ##### DICTIONARY LEARNING #####
         start_dictionary_learning_idx = 30
-        if iter_idx > start_dictionary_learning_idx and iter_idx % update_dictionary_interval == 0: # Check that this is right...
+        horizon = 30
+        if (
+            iter_idx >= start_dictionary_learning_idx - 1
+            and iter_idx % update_dictionary_interval == 0
+        ):
             print("Dictionary learning!")
             print(f"history idx: {history_idx}, iter_idx: {iter_idx}")
 
-    # var = candidate, candidates
+            start_idx = max(iter_idx - num_samples_pitch, 1)
+            stop_idx = min(iter_idx + horizon, signal_length)
+
+            pitch_limit = init_freq_resolution/2
+
+            reference_signal = signal[start_idx:iter_idx]
+            breakpoint() # sample index next...
 
     # To return something...
 
