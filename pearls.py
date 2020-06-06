@@ -137,6 +137,30 @@ def rls_update(
     return rls_filter
 
 
+# Omg this function is horrible...
+def dictionary_update(
+    rls_filter, 
+    reference_signal, 
+    pitch_limit, 
+    candidates, 
+    candidates_exponent,
+    candidates_exponent_no_phase,
+    frequency_matrix,
+    time,
+    sampling_frequency,
+    max_num_harmonics,
+    num_pitch_candidates,
+    # Sort out below parameters...
+    start_index_time,
+    stop_index_time,
+    curr_index_curr_a,
+    start_index_curr_a,
+    stop_index_curr_a,
+    start_index_old_a
+):
+    pass
+
+
 def PEARLS(
     signal,
     forgetting_factor,
@@ -300,8 +324,14 @@ def PEARLS(
 
             pitch_limit = init_freq_resolution/2
 
-            reference_signal = signal[start_idx:iter_idx]
+            reference_signal = signal[start_idx:iter_idx+1]
+
+            learning_idx = 
             breakpoint() # sample index next...
+
+            # ... what ...
+
+
 
     # To return something...
 
