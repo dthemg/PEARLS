@@ -14,6 +14,7 @@ TO DO:
 * Re-structure code better
 * Sketch on visualization
 * Active block updates
+* Do some basic optimization
 
 IN PROGRESS:
 * Dictionary learning scheme
@@ -161,6 +162,7 @@ def dictionary_update(
     pass
 
 
+
 def PEARLS(
     signal,
     forgetting_factor,
@@ -181,7 +183,7 @@ def PEARLS(
     num_samples_pitch = 40  # np.floor(45 * 1e-3 * sampling_frequency)
 
     # Length of dictionary
-    history_len = 20
+    batch_len = 50
 
     # Penalty parameters
     penalty_factor_1 = 4
@@ -205,8 +207,8 @@ def PEARLS(
     # Define time indexes
     time = np.arange(signal_length)
 
-    # Define history indicies
-    time_history = np.arange(history_len)
+    # Define batch indicies
+    time_batch = np.arange(batch_len)
 
     # Define 45 ms candidates
     (
@@ -214,8 +216,9 @@ def PEARLS(
         candidates_exponent_no_phase,
         candidates,
     ) = get_new_candidates(
-        time_history, history_len, frequency_matrix, sampling_frequency
+        time_batch, batch_len, frequency_matrix, sampling_frequency
     )
+    prev_candidates = candidates
 
     ##### DEFINE PENALTY WINDOW #####
     # Define the window length
@@ -234,7 +237,7 @@ def PEARLS(
     # Initialize filter weights
     coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
     rls_filter = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
-    rls_filter_history = np.zeros(
+    rls_filter_batch = np.zeros(
         (num_filter_coeffs, signal_length), dtype=complex_dtype
     )
 
@@ -250,17 +253,18 @@ def PEARLS(
         pitch_history[:, iter_idx] = pitch_candidates
 
         ##### SAMPLE SELECTION #####
-        history_idx = iter_idx % history_len
+        batch_idx = iter_idx % batch_len
 
-        # Renew candidate matrix if history is filled
-        if history_idx == 0:
+        # Renew candidate matrix if batch is filled
+        if batch_idx == 0:
+
             prev_candidates = candidates
-            upper_time_idx = min(signal_length, iter_idx + history_len)
-            time_history = time[iter_idx:upper_time_idx]
+            upper_time_idx = min(signal_length, iter_idx + batch_len)
+            time_batch = time[iter_idx:upper_time_idx]
             # If end of signal
-            if upper_time_idx - history_idx < history_len:
-                time_history = np.append(
-                    time_history, np.zeros(history_len - (upper_time_idx - smaple_idx))
+            if upper_time_idx - batch_idx < batch_len:
+                time_batch = np.append(
+                    time_batch, np.zeros(batch_len - (upper_time_idx - smaple_idx))
                 )
 
             (
@@ -268,13 +272,12 @@ def PEARLS(
                 candidates_exponent_no_phase,
                 candidates,
             ) = get_new_candidates(
-                time_history, history_len, frequency_matrix, sampling_frequency
+                time_batch, batch_len, frequency_matrix, sampling_frequency
             )
 
         # Vector of time frequency candidates
-        # TODO: CONTINUE HERE!!! CURRENTLY BREAKS AT ITER 20
         candidate = (
-            candidates[history_idx, :][np.newaxis].conj().T
+            candidates[batch_idx, :][np.newaxis].conj().T
         )  # Feel like this should be after...
 
         sample = signal[iter_idx]
@@ -310,31 +313,48 @@ def PEARLS(
             )
 
         ##### DICTIONARY LEARNING #####
-        start_dictionary_learning_idx = 30
-        horizon = 30
+        start_dictionary_learning_idx = 10
+        horizon = 10
         if (
             iter_idx >= start_dictionary_learning_idx - 1
             and iter_idx % update_dictionary_interval == 0
         ):
             print("Dictionary learning!")
-            print(f"history idx: {history_idx}, iter_idx: {iter_idx}")
+            print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
 
+            # Find start and stop indicies for this batch
             start_idx = max(iter_idx - num_samples_pitch, 1)
             stop_idx = min(iter_idx + horizon, signal_length)
 
             pitch_limit = init_freq_resolution/2
 
-            reference_signal = signal[start_idx:iter_idx+1]
+            reference_signal = signal[start_idx:iter_idx+1] # gucci
 
-            learning_idx = 
-            breakpoint() # sample index next...
+            # If necessary find start index of previous batch
+            batch_start_idx = min(1, batch_idx - num_samples_pitch)
+            batch_stop_idx = max(batch_len, batch_idx + horizon)
 
-            # ... what ...
+            if iter_idx - num_samples_pitch < 0:
+                prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
 
+                (
+                    candidates,
+                    candidates_exponent,
+                    candidates_exponent_no_phase,
+                    prev_candidates,
+                    pitch_candidates,
+                    time,
+                    sampling_frequency,
+                    max_num_harmonics,
+                    num_pitch_candidates,
+                    start_idx,
+                    stop_idx,
+                    batch_idx,
 
+                ) = dictionary_update()
 
     # To return something...
 
-    filter_history = []
-    candidate_frequency_history = []
-    return filter_history, candidate_frequency_history, var
+    filter_batch = []
+    candidate_frequency_batch = []
+    return filter_batch, candidate_frequency_batch, var
