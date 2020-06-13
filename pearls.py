@@ -138,7 +138,6 @@ def rls_update(
     return rls_filter
 
 
-# Omg this function is horrible...
 def dictionary_update(
     rls_filter,
     reference_signal,
@@ -152,16 +151,17 @@ def dictionary_update(
     max_num_harmonics,
     num_pitch_candidates,
     start_index_time,
-    stop_index_time, 
-    batch_start_idx, 
+    stop_index_time,
+    batch_start_idx,
     batch_stop_idx,
     prev_candidates,
-    prev_batch_start_idx 
+    prev_batch_start_idx,
 ):
+    """Update the pitch frequency grid"""
+    rls_filter_matrix = rls_filter.reshape(
+        max_num_harmonics, num_pitch_candidates, order="F"
+    )
     # Verified up to here.
-
-
-    pass
 
 
 def PEARLS(
@@ -320,16 +320,16 @@ def PEARLS(
             print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
 
             # Find start and stop indicies for this batch
-            start_idx = max(iter_idx - num_samples_pitch, 1) # good
-            stop_idx = min(iter_idx + horizon, signal_length) # good
+            start_idx = max(iter_idx - num_samples_pitch, 1)  # good
+            stop_idx = min(iter_idx + horizon, signal_length)  # good
 
-            pitch_limit = init_freq_resolution / 2 # good
+            pitch_limit = init_freq_resolution / 2  # good
 
-            reference_signal = signal[start_idx : iter_idx + 1] # good
+            reference_signal = signal[start_idx : iter_idx + 1]  # good
 
             # If necessary find start index of previous batch... but we shouldn't do this
-            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1) # good
-            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1 # good
+            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)  # good
+            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1  # good
 
             if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
@@ -337,7 +337,7 @@ def PEARLS(
             else:
                 prev_batch_start_idx = None
                 prev_cands = None
-            
+
             # Compute dictionary update... just awful...
             a = 4
             (
@@ -371,7 +371,7 @@ def PEARLS(
                 batch_start_idx,
                 batch_stop_idx,
                 prev_cands,
-                prev_batch_start_idx
+                prev_batch_start_idx,
             )
 
     # To return something...
