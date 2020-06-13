@@ -140,27 +140,28 @@ def rls_update(
 
 # Omg this function is horrible...
 def dictionary_update(
-    rls_filter, 
-    reference_signal, 
-    pitch_limit, 
-    candidates, 
+    rls_filter,
+    reference_signal,
+    pitch_limit,
+    candidates,
     candidates_exponent,
     candidates_exponent_no_phase,
-    frequency_matrix,
+    pitch_candidates,
     time,
     sampling_frequency,
     max_num_harmonics,
     num_pitch_candidates,
-    # Sort out below parameters...
     start_index_time,
-    stop_index_time,
-    curr_index_curr_a,
-    start_index_curr_a,
-    stop_index_curr_a,
-    start_index_old_a
+    stop_index_time, 
+    batch_start_idx, 
+    batch_stop_idx,
+    prev_candidates,
+    prev_batch_start_idx 
 ):
-    pass
+    # Verified up to here.
 
+
+    pass
 
 
 def PEARLS(
@@ -215,9 +216,7 @@ def PEARLS(
         candidates_exponent,
         candidates_exponent_no_phase,
         candidates,
-    ) = get_new_candidates(
-        time_batch, batch_len, frequency_matrix, sampling_frequency
-    )
+    ) = get_new_candidates(time_batch, batch_len, frequency_matrix, sampling_frequency)
     prev_candidates = candidates
 
     ##### DEFINE PENALTY WINDOW #####
@@ -237,9 +236,7 @@ def PEARLS(
     # Initialize filter weights
     coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
     rls_filter = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
-    rls_filter_batch = np.zeros(
-        (num_filter_coeffs, signal_length), dtype=complex_dtype
-    )
+    rls_filter_batch = np.zeros((num_filter_coeffs, signal_length), dtype=complex_dtype)
 
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
@@ -323,35 +320,59 @@ def PEARLS(
             print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
 
             # Find start and stop indicies for this batch
-            start_idx = max(iter_idx - num_samples_pitch, 1)
-            stop_idx = min(iter_idx + horizon, signal_length)
+            start_idx = max(iter_idx - num_samples_pitch, 1) # good
+            stop_idx = min(iter_idx + horizon, signal_length) # good
 
-            pitch_limit = init_freq_resolution/2
+            pitch_limit = init_freq_resolution / 2 # good
 
-            reference_signal = signal[start_idx:iter_idx+1] # gucci
+            reference_signal = signal[start_idx : iter_idx + 1] # good
 
-            # If necessary find start index of previous batch
-            batch_start_idx = min(1, batch_idx - num_samples_pitch)
-            batch_stop_idx = max(batch_len, batch_idx + horizon)
+            # If necessary find start index of previous batch... but we shouldn't do this
+            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1) # good
+            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1 # good
 
-            if iter_idx - num_samples_pitch < 0:
+            if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
-
-                (
-                    candidates,
-                    candidates_exponent,
-                    candidates_exponent_no_phase,
-                    prev_candidates,
-                    pitch_candidates,
-                    time,
-                    sampling_frequency,
-                    max_num_harmonics,
-                    num_pitch_candidates,
-                    start_idx,
-                    stop_idx,
-                    batch_idx,
-
-                ) = dictionary_update()
+                prev_cands = prev_candidates
+            else:
+                prev_batch_start_idx = None
+                prev_cands = None
+            
+            # Compute dictionary update... just awful...
+            a = 4
+            (
+                candidates,
+                candidates_exponent,
+                candidates_exponent_no_phase,
+                prev_candidates,
+                pitch_candidates,
+                time,
+                sampling_frequency,
+                max_num_harmonics,
+                num_pitch_candidates,
+                start_idx,
+                stop_idx,
+                batch_idx,
+            ) = dictionary_update(
+                rls_filter,
+                reference_signal,
+                pitch_limit,
+                candidates,
+                candidates_exponent,
+                candidates_exponent_no_phase,
+                pitch_candidates,
+                time,
+                sampling_frequency,
+                max_num_harmonics,
+                num_pitch_candidates,
+                # Sort out below parameters...
+                start_idx,
+                stop_idx,
+                batch_start_idx,
+                batch_stop_idx,
+                prev_cands,
+                prev_batch_start_idx
+            )
 
     # To return something...
 
