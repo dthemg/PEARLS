@@ -1,5 +1,8 @@
 import numpy as np
 
+MIN_PITCH_RATIO = 0.05
+MIN_HARMONIC_RATIO = 0.2
+
 def dictionary_update(
     rls_filter,
     reference_signal,
@@ -35,10 +38,11 @@ def dictionary_update(
         )
         batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
 
-    # Sort peaks in descending order
+    # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
+    peak_idxs = [i for i, peak in enumerate(is_peak) if peak]
 
-    # If no peaks are found, skip dictionary learning
+    # If no peaks are found, skip dictionary learning (Probably unnecessary...)
     if (~peak_locations).all():
         return (
             batch,
@@ -50,16 +54,21 @@ def dictionary_update(
         )
 
     # Do dictionary learning
-    for peak_idx in np.where(peak_locations):
+    for peak_idx in peak_idxs:
         a = 4
+        harmonic_amplitudes = abs(rls_filter_matrix[:, peak_idx])
+        largest_harmonic = max(harmonic_amplitudes)
+        significant_harmonics = harmonic_amplitudes > 0.2 * largest_harmonic
+        
+        
+
         # Seems to work up to here
 
-    breakpoint()
 
 # Does not capture peaks at either end of spectrum
 def _find_peak_locations(arr):
     is_peak = np.r_[False, arr[1:] > arr[:-1]] & np.r_[arr[:-1] > arr[1:], False]
-    return is_peak & (arr > 0.05 * arr[1:-1].max())
+    return is_peak & (arr > MIN_PITCH_RATIO * arr[1:-1].max())
 
 def _phase_update():
     pass
