@@ -4,6 +4,9 @@
 import numpy as np
 from tqdm import tqdm
 
+from dictionary_update import dictionary_update
+from gradient_descent import proximial_gradient_update
+from rls_update import rls_update
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
@@ -26,23 +29,18 @@ DONE:
 * RLS update
 """
 
-# Does not capture peaks at either end of spectrum
-def find_peak_locations(arr):
-    is_peak = np.r_[False, arr[1:] > arr[:-1]] & np.r_[arr[:-1] > arr[1:], False]
-    return is_peak & (arr > 0.05 * arr[1:-1].max())
-
 
 # Create window length from forgetting factor
 def get_window_length(forgetting_factor):
     return np.log(0.01) // np.log(forgetting_factor)
 
 
-# Create new candidate A matrix
-def get_new_candidates(
+# Create new batch
+def get_new_batch(
     time_vector, vector_length, frequency_matrix, sampling_frequency
 ):
     # Flatten MatLab-style
-    candidates_exponent = (
+    batch_exponent = (
         time_vector.reshape(vector_length, 1)
         * frequency_matrix.flatten("F")
         * 2
@@ -50,154 +48,9 @@ def get_new_candidates(
         / sampling_frequency
     )
 
-    candidates_exponent_no_phase = candidates_exponent
-    candidates = np.exp(1j * candidates_exponent)
-    return candidates_exponent, candidates_exponent_no_phase, candidates
-
-
-# Do gradient descent for coefficients
-def proximial_gradient_update(
-    coeffs,
-    cov_matrix,
-    cov_vector,
-    num_pitch_candidates,
-    max_num_harmonics,
-    penalty_factor_1,
-    penalty_factor_2,
-    max_gradient_iterations,
-    step_size,
-):
-    first_harmonic_amplitudes = np.ones((num_pitch_candidates, 1))
-    for _ in range(max_gradient_iterations):
-        # Calculate gradient
-        gradient = -cov_vector + cov_matrix @ coeffs
-        new_coeffs = coeffs - step_size * gradient
-        new_coeffs = soft_threshold(new_coeffs, penalty_factor_1 * step_size)
-
-        # Update each pitch candidate
-        for pitch_idx in range(num_pitch_candidates):
-            harmonic_idxs = np.arange(
-                pitch_idx * max_num_harmonics, (pitch_idx + 1) * max_num_harmonics
-            )
-            harmonic_coeffs = new_coeffs[harmonic_idxs]
-            pitch_penalty_factor_2 = penalty_factor_2 * max(
-                1, min(1000, 1 / (abs(first_harmonic_amplitudes[pitch_idx]) + 1e-5))
-            )
-            factor = max(
-                np.linalg.norm(harmonic_coeffs, 2)
-                - pitch_penalty_factor_2 * (step_size ** 2),
-                0,
-            )
-            coeffs[harmonic_idxs] = (
-                harmonic_coeffs
-                * factor
-                / (factor + pitch_penalty_factor_2 * (step_size ** 2))
-            )
-
-        first_harmonic_amplitudes = coeffs[
-            0 : num_pitch_candidates * max_num_harmonics : max_num_harmonics
-        ]
-
-    return coeffs
-
-
-# Thresholding function used in gradient descent
-def soft_threshold(vector, penalty_factor):
-    thresh_vector = max((np.abs(vector) - penalty_factor).max(), 0)
-    return (thresh_vector / (thresh_vector + penalty_factor)) * vector
-
-
-# Update RLS filters
-def rls_update(
-    rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
-):
-    num_pitch_candidates = int(rls_filter.size / max_num_harmonics)
-    penalty_matrix = smoothness_factor * np.eye(max_num_harmonics)
-
-    all_candidates_idxs = range(num_pitch_candidates * max_num_harmonics)
-
-    for pitch_idx in range(num_pitch_candidates):
-        harmonic_idxs = np.in1d(
-            all_candidates_idxs,
-            np.arange(
-                pitch_idx * max_num_harmonics, (pitch_idx + 1) * max_num_harmonics
-            ),
-        )
-        harmonic_rows_cov = cov_matrix[harmonic_idxs, :]
-        harmonic_others = harmonic_rows_cov[:, ~harmonic_idxs]
-        harmonic_pitch = harmonic_rows_cov[:, harmonic_idxs]
-
-        harmonic_vector_cov = cov_vector[harmonic_idxs]
-        harmonic_vector_cov = harmonic_vector_cov - np.dot(
-            harmonic_others, rls_filter[~harmonic_idxs]
-        )
-
-        harmonic_matrix_tilde = harmonic_pitch + penalty_matrix
-        harmonic_vector_tilde = harmonic_vector_cov + np.dot(
-            smoothness_factor, rls_filter[harmonic_idxs]
-        )
-
-        # Which function should be used? lstsq finds minimal norm solution...
-        rls_filter[harmonic_idxs], _, _, _ = np.linalg.lstsq(
-            harmonic_matrix_tilde, harmonic_vector_tilde, rcond=None
-        )
-
-    return rls_filter
-
-
-def dictionary_update(
-    rls_filter,
-    reference_signal,
-    pitch_limit,
-    candidates,
-    candidates_exponent,
-    candidates_exponent_no_phase,
-    pitch_candidates,
-    time,
-    sampling_frequency,
-    max_num_harmonics,
-    num_pitch_candidates,
-    start_index_time,
-    stop_index_time,
-    batch_start_idx,
-    batch_stop_idx,
-    prev_candidates,
-    prev_batch_start_idx,
-):
-    """Update the pitch frequency grid"""
-    rls_filter_matrix = rls_filter.reshape(
-        max_num_harmonics, num_pitch_candidates, order="F"
-    )
-    # Verified up to here.
-    pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
-
-    if prev_candidates is None:
-        candidates_for_est = candidates[batch_start_idx:batch_stop_idx, :]
-    else:
-        np.concatenate(
-            (prev_candidates[prev_batch_start_idx:, :], candidates[:batch_stop_idx, :]),
-            axis=0,
-        )
-        candidates_for_est = candidates[batch_start_idx:batch_stop_idx, :]
-
-    # Sort peaks in descending order
-    peak_locations = find_peak_locations(pitch_norms)
-
-    # If no peaks are found, skip dictionary learning
-    if (~peak_locations).all():
-        return (
-            candidates,
-            candidates_exponent,
-            candidates_exponent_no_phase,
-            prev_candidates,
-            pitch_candidates,
-            rls_filter,
-        )
-
-    # Do dictionary learning
-    for peak_idx in np.where(peak_locations):
-        a = 4
-        # Seems to work up to here
+    batch_exponent_no_phase = batch_exponent
+    batch = np.exp(1j * batch_exponent)
+    return batch_exponent, batch_exponent_no_phase, batch
 
 
 def PEARLS(
@@ -247,13 +100,13 @@ def PEARLS(
     # Define batch indicies
     time_batch = np.arange(batch_len)
 
-    # Define 45 ms candidates
+    # Define 45 ms batch
     (
-        candidates_exponent,
-        candidates_exponent_no_phase,
-        candidates,
-    ) = get_new_candidates(time_batch, batch_len, frequency_matrix, sampling_frequency)
-    prev_candidates = candidates
+        batch_exponent,
+        batch_exponent_no_phase,
+        batch,
+    ) = get_new_batch(time_batch, batch_len, frequency_matrix, sampling_frequency)
+    prev_batch = batch
 
     ##### DEFINE PENALTY WINDOW #####
     # Define the window length
@@ -261,13 +114,13 @@ def PEARLS(
 
     ##### INITIALIZE VARIABLES #####
     # Get first candidate vector
-    candidate = candidates[0, :][np.newaxis].T
+    batch_vector = batch[0, :][np.newaxis].T
 
     # Initial estimate of covariance matrix (R(t))
-    cov_matrix = candidate * candidate.conj().T
+    cov_matrix = batch_vector * batch_vector.conj().T
 
     # Initial value of candidate value vector (r(t))
-    cov_vector = signal[0] * candidate
+    cov_vector = signal[0] * batch_vector
 
     # Initialize filter weights
     coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
@@ -291,7 +144,7 @@ def PEARLS(
         # Renew candidate matrix if batch is filled
         if batch_idx == 0:
 
-            prev_candidates = candidates
+            prev_batch = batch
             upper_time_idx = min(signal_length, iter_idx + batch_len)
             time_batch = time[iter_idx:upper_time_idx]
             # If end of signal
@@ -301,23 +154,23 @@ def PEARLS(
                 )
 
             (
-                candidates_exponent,
-                candidates_exponent_no_phase,
-                candidates,
-            ) = get_new_candidates(
+                batch_exponent,
+                batch_exponent_no_phase,
+                batch,
+            ) = get_new_batch(
                 time_batch, batch_len, frequency_matrix, sampling_frequency
             )
 
-        # Vector of time frequency candidates
-        candidate = (
-            candidates[batch_idx, :][np.newaxis].conj().T
+        # Vector of time frequency
+        batch_vector = (
+            batch[batch_idx, :][np.newaxis].conj().T
         )  # Feel like this should be after...
 
         sample = signal[iter_idx]
 
         # Update covariance estimate
-        cov_matrix = forgetting_factor * cov_matrix + candidate * candidate.conj().T
-        cov_vector = forgetting_factor * cov_vector + candidate * sample
+        cov_matrix = forgetting_factor * cov_matrix + batch_vector * batch_vector.conj().T
+        cov_vector = forgetting_factor * cov_vector + batch_vector * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
         # update_penalties( ... )
@@ -369,27 +222,27 @@ def PEARLS(
 
             if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
-                prev_cands = prev_candidates
+                temp_prev_batch = prev_batch
             else:
                 prev_batch_start_idx = None
-                prev_cands = None
+                temp_prev_batch = None
 
             # Compute dictionary update... just awful...
             a = 4
             (
-                candidates,
-                candidates_exponent,
-                candidates_exponent_no_phase,
-                prev_candidates,
+                batch,
+                batch_exponent,
+                batch_exponent_no_phase,
+                prev_batch,
                 pitch_candidates,
                 rls_filter,
             ) = dictionary_update(
                 rls_filter,
                 reference_signal,
                 pitch_limit,
-                candidates,
-                candidates_exponent,
-                candidates_exponent_no_phase,
+                batch,
+                batch_exponent,
+                batch_exponent_no_phase,
                 pitch_candidates,
                 time,
                 sampling_frequency,
@@ -399,7 +252,7 @@ def PEARLS(
                 stop_idx,
                 batch_start_idx,
                 batch_stop_idx,
-                prev_cands,
+                temp_prev_batch,
                 prev_batch_start_idx,
             )
 
