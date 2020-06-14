@@ -4,6 +4,7 @@
 import numpy as np
 from tqdm import tqdm
 
+
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
 
@@ -24,6 +25,12 @@ DONE:
 * Proximal gradient descent
 * RLS update
 """
+
+# Does not capture peaks at either end of spectrum
+def find_peak_locations(arr):
+    is_peak = np.r_[False, arr[1:] > arr[:-1]] & np.r_[arr[:-1] > arr[1:], False]
+    return is_peak & (arr > 0.05*arr[1:-1].max())
+
 
 # Create window length from forgetting factor
 def get_window_length(forgetting_factor):
@@ -162,6 +169,41 @@ def dictionary_update(
         max_num_harmonics, num_pitch_candidates, order="F"
     )
     # Verified up to here.
+    pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
+
+
+    if prev_candidates is None:
+        candidates_for_est = candidates[batch_start_idx:batch_stop_idx, :]
+    else:
+        np.concatenate((
+            prev_candidates[prev_batch_start_idx:, :],
+            candidates[:batch_stop_idx,:]
+        ), axis=0)
+        candidates_for_est = candidates[batch_start_idx:batch_stop_idx, :]
+    
+    # Sort peaks in descending order
+    peak_locations = find_peak_locations(pitch_norms)
+
+
+    # If no peaks are found, skip dictionary learning
+    if (~peak_locations).all():
+        return (
+            candidates,
+            candidates_exponent,
+            candidates_exponent_no_phase,
+            prev_candidates,
+            pitch_candidates,
+            rls_filter
+        )
+    
+    # Do dictionary learning
+    for peak_idx in np.where(peak_locations):
+        a = 4
+        # Seems to work up to here
+        
+
+
+
 
 
 def PEARLS(
@@ -346,13 +388,7 @@ def PEARLS(
                 candidates_exponent_no_phase,
                 prev_candidates,
                 pitch_candidates,
-                time,
-                sampling_frequency,
-                max_num_harmonics,
-                num_pitch_candidates,
-                start_idx,
-                stop_idx,
-                batch_idx,
+                rls_filter
             ) = dictionary_update(
                 rls_filter,
                 reference_signal,
@@ -363,9 +399,8 @@ def PEARLS(
                 pitch_candidates,
                 time,
                 sampling_frequency,
-                max_num_harmonics,
+                max_num_harmonics, 
                 num_pitch_candidates,
-                # Sort out below parameters...
                 start_idx,
                 stop_idx,
                 batch_start_idx,
