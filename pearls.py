@@ -36,9 +36,7 @@ def get_window_length(forgetting_factor):
 
 
 # Create new batch
-def get_new_batch(
-    time_vector, vector_length, frequency_matrix, sampling_frequency
-):
+def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequency):
     # Flatten MatLab-style
     batch_exponent = (
         time_vector.reshape(vector_length, 1)
@@ -101,11 +99,9 @@ def PEARLS(
     time_batch = np.arange(batch_len)
 
     # Define 45 ms batch
-    (
-        batch_exponent,
-        batch_exponent_no_phase,
-        batch,
-    ) = get_new_batch(time_batch, batch_len, frequency_matrix, sampling_frequency)
+    (batch_exponent, batch_exponent_no_phase, batch,) = get_new_batch(
+        time_batch, batch_len, frequency_matrix, sampling_frequency
+    )
     prev_batch = batch
 
     ##### DEFINE PENALTY WINDOW #####
@@ -153,11 +149,7 @@ def PEARLS(
                     time_batch, np.zeros(batch_len - (upper_time_idx - smaple_idx))
                 )
 
-            (
-                batch_exponent,
-                batch_exponent_no_phase,
-                batch,
-            ) = get_new_batch(
+            (batch_exponent, batch_exponent_no_phase, batch,) = get_new_batch(
                 time_batch, batch_len, frequency_matrix, sampling_frequency
             )
 
@@ -169,7 +161,9 @@ def PEARLS(
         sample = signal[iter_idx]
 
         # Update covariance estimate
-        cov_matrix = forgetting_factor * cov_matrix + batch_vector * batch_vector.conj().T
+        cov_matrix = (
+            forgetting_factor * cov_matrix + batch_vector * batch_vector.conj().T
+        )
         cov_vector = forgetting_factor * cov_vector + batch_vector * sample
 
         # SKIP UPDATING PENALTY PARAMETERS...
@@ -223,12 +217,14 @@ def PEARLS(
             if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
                 temp_prev_batch = prev_batch
+
+                # TODO: Something gives us one index wrong in the reference signal... fix this
+
             else:
                 prev_batch_start_idx = None
                 temp_prev_batch = None
 
             # Compute dictionary update... just awful...
-            a = 4
             (
                 batch,
                 batch_exponent,
