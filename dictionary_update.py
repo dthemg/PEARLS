@@ -2,6 +2,7 @@ import numpy as np
 
 MIN_PITCH_RATIO = 0.05
 MIN_HARMONIC_RATIO = 0.2
+DEFAULT_NUM_SEARCH_POINTS = 2 ** 20
 
 
 def dictionary_update(
@@ -61,19 +62,14 @@ def dictionary_update(
         significant_harmonics = (
             harmonic_amplitudes > MIN_HARMONIC_RATIO * largest_harmonic
         )
-        highest_harmonic = [i for i, v in enumerate(significant_harmonics) if v]
+        highest_harmonic = max([i for i, v in enumerate(significant_harmonics) if v])
 
         pitch = pitch_candidates[peak_idx]
         pitch_update_range = np.array([pitch - pitch_limit, pitch + pitch_limit])
 
         updated_pitch = _interval_pitch_search(
-            reference_signal,
-            highest_harmonic,
-            pitch_update_range,
-            sampling_frequency,
+            reference_signal, highest_harmonic, pitch_update_range, sampling_frequency,
         )
-
-        # Seems to work up to here
 
 
 # Does not capture peaks at either end of spectrum
@@ -82,11 +78,36 @@ def _find_peak_locations(arr):
     return is_peak & (arr > MIN_PITCH_RATIO * arr[1:-1].max())
 
 
-def _phase_update():
-    pass
-
-
 def _interval_pitch_search(
-    signal, highest_harmonic, search_range, sampling_frequency
+    signal,
+    highest_harmonic,
+    search_range,
+    sampling_frequency,
+    num_search_points=DEFAULT_NUM_SEARCH_POINTS,
 ):
+    frequency_grid = (
+        np.arange(0, num_search_points) / num_search_points * sampling_frequency
+    )
+    signal_length = len(signal)
+
+    # Interval edges
+    a = np.argmax(frequency_grid > search_range[0])
+    b = np.argmax(frequency_grid > search_range[1]) - 1
+    m = np.floor(a + b, 2)
+    _lambda = m - 1
+    tol = 3
+    counter = 0
+
+    while b - a > tol:
+        f_lambda = f(signal, signal_length, frequency_grid, _lambda, highest_harmonic)
+
+
+def f(signal, signal_length, num_search_points, k, highest_harmonic):
+    val = 0
+    for harmonic in arange(1, highest_harmonic + 1):
+        pass
+    return val
+
+
+def _phase_update():
     pass
