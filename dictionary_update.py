@@ -87,5 +87,7 @@ def _phase_update():
     pass
 
 
-def _interval_pitch_search():
+def _interval_pitch_search(
+    signal, num_significant_harmonics, search_range, sampling_frequency
+):
     pass

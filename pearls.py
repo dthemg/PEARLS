@@ -203,28 +203,26 @@ def PEARLS(
             print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
 
             # Find start and stop indicies for this batch
-            start_idx = max(iter_idx - num_samples_pitch, 1)  # good
-            stop_idx = min(iter_idx + horizon, signal_length)  # good
+            start_idx = max(iter_idx - num_samples_pitch + 1, 1)
+            stop_idx = min(iter_idx + horizon, signal_length)
 
-            pitch_limit = init_freq_resolution / 2  # good
+            pitch_limit = init_freq_resolution / 2
 
-            reference_signal = signal[start_idx : iter_idx + 1]  # good
+            reference_signal = signal[start_idx : iter_idx + 1]
 
             # If necessary find start index of previous batch... but we shouldn't do this
-            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)  # good
-            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1  # good
+            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)
+            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1
 
             if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
                 temp_prev_batch = prev_batch
 
-                # TODO: Something gives us one index wrong in the reference signal... fix this
-
             else:
                 prev_batch_start_idx = None
                 temp_prev_batch = None
 
-            # Compute dictionary update... just awful...
+            # Compute dictionary update
             (
                 batch,
                 batch_exponent,
