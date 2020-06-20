@@ -81,13 +81,9 @@ def dictionary_update(
         columns_to_change = np.arange(
             (peak_idx - 1) * max_num_harmonics, peak_idx * max_num_harmonics, dtype=int
         )
-        new_batch_exponent_no_phase = (
-            2
-            * pi
-            * batch_time
-            * updated_pitch
-            * np.arange(1, max_num_harmonics)
-            / sampling_frequency
+        new_batch_exponent_no_phase = np.outer(
+            2 * np.pi * batch_time * updated_pitch,
+            np.arange(1, max_num_harmonics+1) / sampling_frequency
         )
         new_batch_exponent = _phase_update(
             reference_signal, new_batch_exponent_no_phase, max_num_harmonics
@@ -119,6 +115,7 @@ def _interval_pitch_search(
     _lambda = m - 1
     mu = m + 1
 
+    # Zoom in until we are sufficiently close to a frequency
     while b - a > GRID_TOLERANCE:
         match_lambda = frequency_match(
             signal, signal_length, num_search_points, _lambda, highest_harmonic
@@ -148,5 +145,9 @@ def frequency_match(signal, signal_length, num_search_points, k, highest_harmoni
 
 
 # TODO: Continue here
-def _phase_update(signal, batch_exponent, max_num_harmonics):
-    pass
+def _phase_update(signal, batch_exponent, num_harmonics):
+    signal_len = len(signal)
+    breakpoint()
+
+    for harmonic in range(1, num_harmonics + 1):
+        t_batch_exponent = batch_exponent[:, ]
