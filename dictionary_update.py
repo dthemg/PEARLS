@@ -57,19 +57,18 @@ def dictionary_update(
     for peak_idx in peak_idxs:
         harmonic_amplitudes = abs(rls_filter_matrix[:, peak_idx])
         largest_harmonic = max(harmonic_amplitudes)
-        # TODO: Below is not really used...
+
         significant_harmonics = (
             harmonic_amplitudes > MIN_HARMONIC_RATIO * largest_harmonic
         )
+        highest_harmonic = [i for i, v in enumerate(significant_harmonics) if v]
 
         pitch = pitch_candidates[peak_idx]
         pitch_update_range = np.array([pitch - pitch_limit, pitch + pitch_limit])
-        # REFERENCE SIGNAL IS WRONG...
-        a = 4
 
         updated_pitch = _interval_pitch_search(
             reference_signal,
-            sum(significant_harmonics),
+            highest_harmonic,
             pitch_update_range,
             sampling_frequency,
         )
@@ -88,6 +87,6 @@ def _phase_update():
 
 
 def _interval_pitch_search(
-    signal, num_significant_harmonics, search_range, sampling_frequency
+    signal, highest_harmonic, search_range, sampling_frequency
 ):
     pass
