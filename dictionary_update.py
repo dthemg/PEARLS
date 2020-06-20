@@ -3,6 +3,7 @@ import numpy as np
 MIN_PITCH_RATIO = 0.05
 MIN_HARMONIC_RATIO = 0.2
 DEFAULT_NUM_SEARCH_POINTS = 2 ** 20
+GRID_TOLERANCE = 3
 
 
 def dictionary_update(
@@ -28,8 +29,10 @@ def dictionary_update(
     rls_filter_matrix = rls_filter.reshape(
         max_num_harmonics, num_pitch_candidates, order="F"
     )
-    # Verified up to here.
+    rows_to_change = np.arange(batch_start_idx, batch_stop_idx, dtype=int)
     pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
+
+    batch_time = time[start_index_time:stop_index_time]
 
     if prev_batch is None:
         batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
@@ -73,6 +76,23 @@ def dictionary_update(
             reference_signal, highest_harmonic, pitch_update_range, sampling_frequency,
         )
 
+        # Update batch and pitch candidates
+        pitch_candidates[peak_idx] = updated_pitch
+        columns_to_change = np.arange(
+            (peak_idx - 1) * max_num_harmonics, peak_idx * max_num_harmonics, dtype=int
+        )
+        new_batch_exponent_no_phase = (
+            2
+            * pi
+            * batch_time
+            * updated_pitch
+            * np.arange(1, max_num_harmonics)
+            / sampling_frequency
+        )
+        new_batch_exponent = _phase_update(
+            reference_signal, new_batch_exponent_no_phase, max_num_harmonics
+        )
+
 
 # Does not capture peaks at either end of spectrum
 def _find_peak_locations(arr):
@@ -80,7 +100,6 @@ def _find_peak_locations(arr):
     return is_peak & (arr > MIN_PITCH_RATIO * arr[1:-1].max())
 
 
-# TODO: Check how well this actually works!
 def _interval_pitch_search(
     signal,
     highest_harmonic,
@@ -99,9 +118,8 @@ def _interval_pitch_search(
     m = (a + b) // 2
     _lambda = m - 1
     mu = m + 1
-    tol = 3
 
-    while b - a > tol:
+    while b - a > GRID_TOLERANCE:
         match_lambda = frequency_match(
             signal, signal_length, num_search_points, _lambda, highest_harmonic
         )
@@ -118,8 +136,6 @@ def _interval_pitch_search(
         _lambda = m - 1
         mu = m + 1
 
-
-    breakpoint()
     return frequency_grid[(a + b) // 2]
 
 
@@ -131,5 +147,6 @@ def frequency_match(signal, signal_length, num_search_points, k, highest_harmoni
     return match
 
 
-def _phase_update():
+# TODO: Continue here
+def _phase_update(signal, batch_exponent, max_num_harmonics):
     pass

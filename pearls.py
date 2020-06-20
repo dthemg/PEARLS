@@ -37,7 +37,6 @@ def get_window_length(forgetting_factor):
 
 # Create new batch
 def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequency):
-    # Flatten MatLab-style
     batch_exponent = (
         time_vector.reshape(vector_length, 1)
         * frequency_matrix.flatten("F")
@@ -63,6 +62,7 @@ def PEARLS(
 ):
     var = 1
     complex_dtype = "complex_"
+    float_dtype = "float64"
     signal_length = len(signal)
     update_dictionary_interval = 40
 
@@ -83,7 +83,9 @@ def PEARLS(
 
     ##### INITIALIZE CANDIDATES #####
     # Initialize frequency candidates
-    pitch_candidates = np.arange(minimum_pitch, maximum_pitch + 1, init_freq_resolution)
+    pitch_candidates = np.arange(
+        minimum_pitch, maximum_pitch + 1, init_freq_resolution, dtype=float_dtype
+    )
     num_pitch_candidates = len(pitch_candidates)
     num_filter_coeffs = num_pitch_candidates * max_num_harmonics
 
