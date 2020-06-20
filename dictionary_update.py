@@ -62,7 +62,7 @@ def dictionary_update(
         significant_harmonics = (
             harmonic_amplitudes > MIN_HARMONIC_RATIO * largest_harmonic
         )
-        highest_harmonic = max([i for i, v in enumerate(significant_harmonics) if v])
+        highest_harmonic = max([i for i, v in enumerate(significant_harmonics) if v]) + 1
 
         pitch = pitch_candidates[peak_idx]
         pitch_update_range = np.array([pitch - pitch_limit, pitch + pitch_limit])
@@ -78,6 +78,7 @@ def _find_peak_locations(arr):
     return is_peak & (arr > MIN_PITCH_RATIO * arr[1:-1].max())
 
 
+# TODO: Check how well this actually works!
 def _interval_pitch_search(
     signal,
     highest_harmonic,
@@ -95,18 +96,32 @@ def _interval_pitch_search(
     b = np.argmax(frequency_grid > search_range[1]) - 1
     m = np.floor(a + b, 2)
     _lambda = m - 1
+    mu = m + 1
     tol = 3
     counter = 0
 
     while b - a > tol:
-        f_lambda = f(signal, signal_length, frequency_grid, _lambda, highest_harmonic)
+        match_lambda = frequency_match(signal, signal_length, num_search_points, _lambda, highest_harmonic)
+        match_mu = frequency_match(signal, signal_length, num_search_points, mu, highest_harmonic)
 
+        if match_lambda > match_mu:
+            b = mu
+        else:
+            a = mu
 
-def f(signal, signal_length, num_search_points, k, highest_harmonic):
-    val = 0
-    for harmonic in arange(1, highest_harmonic + 1):
-        pass
-    return val
+        m = np.floor(a + b, 2)
+        _lambda = m - 1
+        mu = m + 1
+        counter += 1
+
+def frequency_match(signal, signal_length, num_search_points, k, highest_harmonic):
+    match = 0
+    for harmonic in arange(1, highest_harmonic):
+        match += np.pow(np.abs(np.dot(np.exp(
+            -2j*np.pi*k*harmonic/num_search_points*np.arange(signal_length)),
+            signal
+        )), 2)
+    return match
 
 
 def _phase_update():
