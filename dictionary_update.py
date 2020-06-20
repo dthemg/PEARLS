@@ -96,11 +96,10 @@ def _interval_pitch_search(
     # Interval edges
     a = np.argmax(frequency_grid > search_range[0])
     b = np.argmax(frequency_grid > search_range[1]) - 1
-    m = np.floor(a + b, 2)
+    m = (a + b) // 2
     _lambda = m - 1
     mu = m + 1
     tol = 3
-    counter = 0
 
     while b - a > tol:
         match_lambda = frequency_match(
@@ -115,31 +114,20 @@ def _interval_pitch_search(
         else:
             a = mu
 
-        m = np.floor(a + b, 2)
+        m = (a + b) // 2
         _lambda = m - 1
         mu = m + 1
-        counter += 1
+
+
+    breakpoint()
+    return frequency_grid[(a + b) // 2]
 
 
 def frequency_match(signal, signal_length, num_search_points, k, highest_harmonic):
+    arr = -2j * k * np.pi * np.arange(signal_length) / num_search_points
     match = 0
-    for harmonic in arange(1, highest_harmonic):
-        match += np.pow(
-            np.abs(
-                np.dot(
-                    np.exp(
-                        -2j
-                        * np.pi
-                        * k
-                        * harmonic
-                        / num_search_points
-                        * np.arange(signal_length)
-                    ),
-                    signal,
-                )
-            ),
-            2,
-        )
+    for harmonic in np.arange(1, highest_harmonic):
+        match += np.power(np.abs(np.dot(np.exp(arr * harmonic), signal)), 2)
     return match
 
 
