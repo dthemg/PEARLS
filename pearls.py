@@ -201,16 +201,16 @@ def PEARLS(
             iter_idx >= start_dictionary_learning_idx - 1
             and iter_idx % update_dictionary_interval == 0
         ):
-            print("Dictionary learning!")
+            print("Dictionary learning")
             print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
 
             # Find start and stop indicies for this batch
-            start_idx = max(iter_idx - num_samples_pitch + 1, 1)
-            stop_idx = min(iter_idx + horizon + 1, signal_length)
+            start_idx_time = max(iter_idx - num_samples_pitch + 1, 1)
+            stop_idx_time = min(iter_idx + horizon, signal_length)
 
             pitch_limit = init_freq_resolution / 2
 
-            reference_signal = signal[start_idx : iter_idx + 1]
+            reference_signal = signal[start_idx_time : iter_idx + 1]
 
             # If necessary find start index of previous batch... but we shouldn't do this
             batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)
@@ -224,8 +224,7 @@ def PEARLS(
                 prev_batch_start_idx = None
                 temp_prev_batch = None
 
-            # TODO Verify
-
+            # TODO Ok a lot of indicies are wrong here...
             # Compute dictionary update
             (
                 batch,
@@ -246,8 +245,9 @@ def PEARLS(
                 sampling_frequency,
                 max_num_harmonics,
                 num_pitch_candidates,
-                start_idx,
-                stop_idx,
+                start_idx_time,
+                stop_idx_time,
+                batch_idx,
                 batch_start_idx,
                 batch_stop_idx,
                 temp_prev_batch,

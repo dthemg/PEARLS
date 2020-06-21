@@ -20,6 +20,7 @@ def dictionary_update(
     num_pitch_candidates,
     start_index_time,
     stop_index_time,
+    batch_idx,
     batch_start_idx,
     batch_stop_idx,
     prev_batch,
@@ -29,20 +30,20 @@ def dictionary_update(
     rls_filter_matrix = rls_filter.reshape(
         max_num_harmonics, num_pitch_candidates, order="F"
     )
-    rows_to_change = np.arange(batch_start_idx, batch_stop_idx, dtype=int)
+    rows_to_change = np.arange(batch_start_idx, batch_stop_idx + 1, dtype=int)[:, np.newaxis]
     pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
 
     batch_time = time[start_index_time : (stop_index_time + 1)]
 
     if prev_batch is None:
-        batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
+        batch_for_est = batch[batch_start_idx:batch_idx, :]
         start_update_idx = 0
     else:
-        np.concatenate(
-            (prev_batch[prev_batch_start_idx:, :], batch[:batch_stop_idx, :]), axis=0,
+        batch_for_est = np.concatenate(
+            (prev_batch[prev_batch_start_idx:, :], batch[:batch_idx, :]), axis=0,
         )
-        batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
         start_update_idx = len(batch_time) - (batch_stop_idx) - 2
+
 
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
@@ -92,7 +93,32 @@ def dictionary_update(
         new_batch_exponent = _phase_update(
             reference_signal, new_batch_exponent_no_phase, max_num_harmonics
         )
+        new_batch = np.exp(1j*new_batch_exponent)
         idx_update = start_update_idx + len(rows_to_change)
+
+        # Assign new values
+        batch_exponent_no_phase[rows_to_change, columns_to_change] = new_batch_exponent_no_phase[
+            start_update_idx: idx_update, :
+        ]
+        batch_exponent[rows_to_change, columns_to_change] = new_batch_exponent[
+            start_update_idx: idx_update, :
+        ]
+        batch[rows_to_change, columns_to_change] = new_batch[
+            start_update_idx: idx_update, :
+        ]
+        if prev_batch is not None:
+            print("Do something with old A (nope)")
+
+        a = 4
+
+    return (
+        batch,
+        batch_exponent,
+        batch_exponent_no_phase,
+        prev_batch,
+        pitch_candidates,
+        rls_filter,
+    )
 
 
 # Does not capture peaks at either end of spectrum
