@@ -36,7 +36,7 @@ def dictionary_update(
     batch_time = time[start_index_time : (stop_index_time + 1)]
 
     if prev_batch is None:
-        batch_for_est = batch[batch_start_idx:batch_idx, :]
+        batch_for_est = batch[batch_start_idx:batch_idx+1, :]
         start_update_idx = 0
     else:
         batch_for_est = np.concatenate(
