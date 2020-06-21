@@ -32,15 +32,17 @@ def dictionary_update(
     rows_to_change = np.arange(batch_start_idx, batch_stop_idx, dtype=int)
     pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
 
-    batch_time = time[start_index_time:stop_index_time]
+    batch_time = time[start_index_time : (stop_index_time + 1)]
 
     if prev_batch is None:
         batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
+        start_update_idx = 0
     else:
         np.concatenate(
             (prev_batch[prev_batch_start_idx:, :], batch[:batch_stop_idx, :]), axis=0,
         )
         batch_for_est = batch[batch_start_idx:batch_stop_idx, :]
+        start_update_idx = len(batch_time) - (batch_stop_idx) - 2
 
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
@@ -79,15 +81,18 @@ def dictionary_update(
         # Update batch and pitch candidates
         pitch_candidates[peak_idx] = updated_pitch
         columns_to_change = np.arange(
-            (peak_idx - 1) * max_num_harmonics, peak_idx * max_num_harmonics, dtype=int
+            peak_idx * max_num_harmonics, (peak_idx + 1) * max_num_harmonics, dtype=int
         )
         new_batch_exponent_no_phase = np.outer(
-            2 * np.pi * batch_time * updated_pitch,
-            np.arange(1, max_num_harmonics+1) / sampling_frequency
+            2 * np.pi * batch_time * updated_pitch / sampling_frequency,
+            np.arange(1, max_num_harmonics + 1),
         )
+
+        # Estimate new phase
         new_batch_exponent = _phase_update(
             reference_signal, new_batch_exponent_no_phase, max_num_harmonics
         )
+        idx_update = start_update_idx + len(rows_to_change)
 
 
 # Does not capture peaks at either end of spectrum
@@ -144,10 +149,15 @@ def frequency_match(signal, signal_length, num_search_points, k, highest_harmoni
     return match
 
 
-# TODO: Continue here
-def _phase_update(signal, batch_exponent, num_harmonics):
+# Estimate phase
+def _phase_update(signal, exponent, num_harmonics):
     signal_len = len(signal)
-    breakpoint()
 
-    for harmonic in range(1, num_harmonics + 1):
-        t_batch_exponent = batch_exponent[:, ]
+    for harmonic in range(num_harmonics):
+        t_exponent = exponent[:signal_len, harmonic]
+        t_batch = np.exp(1j * t_exponent)
+        t_res = np.divide(signal, t_batch)
+        phase_est = np.angle(np.mean(t_res))
+        exponent[:, harmonic] = exponent[:, harmonic] + phase_est
+
+    return exponent

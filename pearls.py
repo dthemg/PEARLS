@@ -206,7 +206,7 @@ def PEARLS(
 
             # Find start and stop indicies for this batch
             start_idx = max(iter_idx - num_samples_pitch + 1, 1)
-            stop_idx = min(iter_idx + horizon, signal_length)
+            stop_idx = min(iter_idx + horizon + 1, signal_length)
 
             pitch_limit = init_freq_resolution / 2
 
@@ -217,12 +217,14 @@ def PEARLS(
             batch_stop_idx = min(batch_len, batch_idx + horizon) - 1
 
             if batch_idx - num_samples_pitch < 0:
-                prev_batch_start_idx = batch_len - (num_samples_pitch - iter_idx)
+                prev_batch_start_idx = batch_len - (num_samples_pitch - batch_idx)
                 temp_prev_batch = prev_batch
 
             else:
                 prev_batch_start_idx = None
                 temp_prev_batch = None
+
+            # TODO Verify
 
             # Compute dictionary update
             (
