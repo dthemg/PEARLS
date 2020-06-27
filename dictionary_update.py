@@ -44,7 +44,8 @@ def dictionary_update(
         batch_for_est = np.concatenate(
             (prev_batch[prev_batch_start_idx:, :], batch[:batch_idx, :]), axis=0,
         )
-        start_update_idx = len(batch_time) - (batch_stop_idx) - 2
+        start_update_idx = len(batch_time) - (batch_stop_idx) - 1
+
 
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
@@ -85,6 +86,7 @@ def dictionary_update(
         columns_to_change = np.arange(
             peak_idx * max_num_harmonics, (peak_idx + 1) * max_num_harmonics, dtype=int
         )
+
         new_batch_exponent_no_phase = np.outer(
             2 * np.pi * batch_time * updated_pitch / sampling_frequency,
             np.arange(1, max_num_harmonics + 1),
@@ -108,10 +110,7 @@ def dictionary_update(
             start_update_idx:idx_update, :
         ]
         if prev_batch is not None:
-            print("Do something with old A")
-            print("Fix here?")
-
-        a = 4
+            prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[:start_update_idx, :]
 
     return (
         batch,
@@ -182,8 +181,7 @@ def _phase_update(signal, exponent, num_harmonics):
     signal_len = len(signal)
 
     for harmonic in range(num_harmonics):
-        t_exponent = exponent[:signal_len, harmonic]
-        t_batch = np.exp(1j * t_exponent)
+        t_batch = np.exp(1j * exponent[:signal_len, harmonic])
         t_res = np.divide(signal, t_batch)
         phase_est = np.angle(np.mean(t_res))
         exponent[:, harmonic] = exponent[:, harmonic] + phase_est

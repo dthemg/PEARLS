@@ -45,8 +45,8 @@ def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequen
         / sampling_frequency
     )
 
-    batch_exponent_no_phase = batch_exponent
-    batch = np.exp(1j * batch_exponent)
+    batch_exponent_no_phase = batch_exponent.copy()
+    batch = np.exp(1j * batch_exponent.copy())
     return batch_exponent, batch_exponent_no_phase, batch
 
 
@@ -214,17 +214,16 @@ def PEARLS(
 
             # If necessary find start index of previous batch... but we shouldn't do this
             batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)
-            batch_stop_idx = min(batch_len, batch_idx + horizon) - 1
+            batch_stop_idx = min(batch_len - 1, batch_idx + horizon)
 
             if batch_idx - num_samples_pitch < 0:
-                prev_batch_start_idx = batch_len - (num_samples_pitch - batch_idx)
+                prev_batch_start_idx = batch_len - (num_samples_pitch - batch_idx) + 1
                 temp_prev_batch = prev_batch
 
             else:
                 prev_batch_start_idx = None
                 temp_prev_batch = None
 
-            # TODO Ok a lot of indicies are wrong here...
             # Compute dictionary update
             (
                 batch,
@@ -255,7 +254,6 @@ def PEARLS(
             )
 
     # To return something...
-
     filter_batch = []
     candidate_frequency_batch = []
     return filter_batch, candidate_frequency_batch, var
