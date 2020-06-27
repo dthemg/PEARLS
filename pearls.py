@@ -14,16 +14,16 @@ from rls_update import rls_update
 """
 CURRENT STATUS:
 TO DO:
-* Penalty parameter updates
 * Re-structure code better
 * Sketch on visualization
 * Active block updates
 * Do some basic optimization
 
 IN PROGRESS:
-* Dictionary learning scheme
+* Penalty parameter updates
 
 DONE:
+* Dictionary learning scheme
 * Initialization
 * Proximal gradient descent
 * RLS update
