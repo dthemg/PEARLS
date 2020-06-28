@@ -46,7 +46,6 @@ def dictionary_update(
         )
         start_update_idx = len(batch_time) - (batch_stop_idx) - 1
 
-
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
     peak_idxs = [i for i, is_peak in enumerate(peak_locations) if is_peak]
@@ -110,7 +109,9 @@ def dictionary_update(
             start_update_idx:idx_update, :
         ]
         if prev_batch is not None:
-            prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[:start_update_idx, :]
+            prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[
+                :start_update_idx, :
+            ]
 
     return (
         batch,
