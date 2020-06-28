@@ -21,7 +21,7 @@ if __name__ == "__main__":
     maximum_pitch = 500
     initial_frequency_resolution = 50
 
-    filter_history, candidate_frequency_history, var = pearls.PEARLS(
+    rls_filter_hist, pitch_hist = pearls.PEARLS(
         signal,
         forgetting_factor,
         smoothness_factor,

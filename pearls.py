@@ -123,7 +123,7 @@ def PEARLS(
     # Initialize filter weights
     coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
     rls_filter = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
-    rls_filter_batch = np.zeros((num_filter_coeffs, signal_length), dtype=complex_dtype)
+    rls_filter_history = np.zeros((num_filter_coeffs, signal_length), dtype=complex_dtype)
 
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
@@ -139,7 +139,7 @@ def PEARLS(
         ##### SAMPLE SELECTION #####
         batch_idx = iter_idx % batch_len
 
-        # Renew candidate matrix if batch is filled
+        # Renew matrix if batch is filled
         if batch_idx == 0:
 
             prev_batch = batch
@@ -193,6 +193,7 @@ def PEARLS(
             rls_filter = rls_update(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
             )
+            rls_filter_history[:, iter_idx] = rls_filter.ravel()
 
         ##### DICTIONARY LEARNING #####
         start_dictionary_learning_idx = 10
@@ -253,7 +254,5 @@ def PEARLS(
                 prev_batch_start_idx,
             )
 
-    # To return something...
-    filter_batch = []
-    candidate_frequency_batch = []
-    return filter_batch, candidate_frequency_batch, var
+
+    return rls_filter_history, pitch_history
