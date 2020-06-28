@@ -7,6 +7,7 @@ from tqdm import tqdm
 from dictionary_update import dictionary_update
 from gradient_descent import proximial_gradient_update
 from rls_update import rls_update
+from update_penalties import update_penalty_parameters
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
@@ -108,7 +109,7 @@ def PEARLS(
 
     ##### DEFINE PENALTY WINDOW #####
     # Define the window length
-    window_length = get_window_length(forgetting_factor)
+    window_length = 50  # get_window_length(forgetting_factor)
 
     ##### INITIALIZE VARIABLES #####
     # Get first candidate vector
@@ -123,7 +124,9 @@ def PEARLS(
     # Initialize filter weights
     coeffs_estimate = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
     rls_filter = np.zeros((num_filter_coeffs, 1), dtype=complex_dtype)
-    rls_filter_history = np.zeros((num_filter_coeffs, signal_length), dtype=complex_dtype)
+    rls_filter_history = np.zeros(
+        (num_filter_coeffs, signal_length), dtype=complex_dtype
+    )
 
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
@@ -168,8 +171,12 @@ def PEARLS(
         )
         cov_vector = forgetting_factor * cov_vector + batch_vector * sample
 
-        # SKIP UPDATING PENALTY PARAMETERS...
-        # update_penalties( ... )
+        # Update penalty parameters
+        if iter_idx > window_length and iter_idx % 40 == 0:
+            penalty_factor_1, penalty_factor_2 = update_penalty_parameters(
+                forgetting_factor,
+            )
+
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
 
@@ -213,7 +220,7 @@ def PEARLS(
 
             reference_signal = signal[start_idx_time : iter_idx + 1]
 
-            # If necessary find start index of previous batch... but we shouldn't do this
+            # If necessary find start index of previous batch
             batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)
             batch_stop_idx = min(batch_len - 1, batch_idx + horizon)
 
@@ -253,6 +260,5 @@ def PEARLS(
                 temp_prev_batch,
                 prev_batch_start_idx,
             )
-
 
     return rls_filter_history, pitch_history

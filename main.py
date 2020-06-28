@@ -11,7 +11,7 @@ if __name__ == "__main__":
     sample_rate, data = wavfile.read(DATA_PATH, mmap=False)
 
     """Test code"""
-    N = 100
+    N = 1000
     signal = data[10000 : 10000 + N, 0]
     forgetting_factor = 0.995
     smoothness_factor = 1e4
@@ -31,3 +31,5 @@ if __name__ == "__main__":
         maximum_pitch,
         initial_frequency_resolution,
     )
+
+    breakpoint()
