@@ -172,10 +172,48 @@ def PEARLS(
         cov_vector = forgetting_factor * cov_vector + batch_vector * sample
 
         # Update penalty parameters
-        if iter_idx > window_length and iter_idx % 40 == 0:
-            penalty_factor_1, penalty_factor_2 = update_penalty_parameters(
-                forgetting_factor,
-            )
+        if iter_idx >= window_length and (iter_idx + 1) % 40 == 0:
+
+            innerProdIndices = np.arange(iter_idx - (window_length), iter_idx + 1)
+
+            if window_length > batch_idx:
+                deltaDiff = window_length - batch_idx - 2
+                dForInnerProd = signal[innerProdIndices]
+                lambdaFactForInnerProd = np.power(
+                    forgetting_factor, np.flip(np.arange(window_length))
+                )
+                AOldForInnerProd = prev_batch[-(deltaDiff + 1) :, :]
+                AForInnerProd = batch[:batch_idx, :]
+                maxNorm = np.max(
+                    np.abs(
+                        np.dot(AOldForInnerProd.conj().T, dForInnerProd[:deltaDiff])
+                        + AForInnerProd.conj().T
+                        * (
+                            np.outer(
+                                lambdaFactForInnerProd[deltaDiff:],
+                                dForInnerProd[deltaDiff:],
+                            )
+                        )
+                    )
+                )
+            else:
+                AInnerProdIndices = np.arange(
+                    batch_idx - (window_length - 1), batch_idx
+                )
+                maxNorm = np.max(
+                    np.abs(
+                        np.dot(
+                            batch[AInnerProdIndices, :].conj().T,
+                            signal[innerProdIndices]
+                            * np.power(
+                                forgetting_factor, np.flip(np.arange(window_length - 2))
+                            ),
+                        )
+                    )
+                )
+
+            penalty_factor_1 = 0.1 * maxNorm
+            penalty_factor_2 = 1 * maxNorm
 
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
