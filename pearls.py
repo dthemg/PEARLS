@@ -7,7 +7,6 @@ from tqdm import tqdm
 from dictionary_update import dictionary_update
 from gradient_descent import proximial_gradient_update
 from rls_update import rls_update
-from update_penalties import update_penalty_parameters
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 
@@ -174,25 +173,27 @@ def PEARLS(
         # Update penalty parameters
         if iter_idx >= window_length and (iter_idx + 1) % 40 == 0:
 
-            innerProdIndices = np.arange(iter_idx - (window_length), iter_idx + 1)
+            innerProdIndices = np.arange(iter_idx - (window_length - 1), iter_idx + 1)
 
             if window_length > batch_idx:
-                deltaDiff = window_length - batch_idx - 2
+                deltaDiff = window_length - batch_idx - 1
                 dForInnerProd = signal[innerProdIndices]
                 lambdaFactForInnerProd = np.power(
                     forgetting_factor, np.flip(np.arange(window_length))
                 )
-                AOldForInnerProd = prev_batch[-(deltaDiff + 1) :, :]
+                AOldForInnerProd = prev_batch[-(deltaDiff):, :]
                 AForInnerProd = batch[:batch_idx, :]
                 maxNorm = np.max(
                     np.abs(
-                        np.dot(AOldForInnerProd.conj().T, dForInnerProd[:deltaDiff])
-                        + AForInnerProd.conj().T
-                        * (
-                            np.outer(
-                                lambdaFactForInnerProd[deltaDiff:],
-                                dForInnerProd[deltaDiff:],
-                            )
+                        np.dot(
+                            AOldForInnerProd.conj().T,
+                            dForInnerProd[:deltaDiff]
+                            * lambdaFactForInnerProd[:deltaDiff],
+                        )
+                        + np.dot(
+                            AForInnerProd.conj().T,
+                            dForInnerProd[deltaDiff:]
+                            * lambdaFactForInnerProd[deltaDiff:],
                         )
                     )
                 )
