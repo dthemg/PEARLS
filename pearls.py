@@ -65,14 +65,14 @@ def PEARLS(
     complex_dtype = "complex_"
     float_dtype = "float64"
     signal_length = len(signal)
-    update_dictionary_interval = 40
+    update_dictionary_interval = 100
 
     ##### ADDITIONAL CONSTANTS #####
     # Number of samples for dictionary update
-    num_samples_pitch = 40  # np.floor(45 * 1e-3 * sampling_frequency)
+    num_samples_pitch = np.floor(45 * 1e-3 * sampling_frequency)
 
     # Length of dictionary
-    batch_len = 50
+    batch_len = 2000
 
     # Penalty parameters
     penalty_factor_1 = 4
@@ -133,7 +133,7 @@ def PEARLS(
 
     ##### PERFORM ALGORITHM #####
 
-    for iter_idx, signal_value in enumerate(signal):
+    for iter_idx, signal_value in enumerate(tqdm(signal)):
         # print("SAMPLE NUMBER:", iter_idx)
 
         # Store current estimates
@@ -151,7 +151,7 @@ def PEARLS(
             # If end of signal
             if upper_time_idx - batch_idx < batch_len:
                 time_batch = np.append(
-                    time_batch, np.zeros(batch_len - (upper_time_idx - smaple_idx))
+                    time_batch, np.zeros(batch_len - (upper_time_idx - batch_idx))
                 )
 
             (batch_exponent, batch_exponent_no_phase, batch,) = get_new_batch(
@@ -209,8 +209,8 @@ def PEARLS(
             rls_filter_history[:, iter_idx] = rls_filter.ravel()
 
         ##### DICTIONARY LEARNING #####
-        start_dictionary_learning_idx = 10
-        horizon = 10
+        start_dictionary_learning_idx = 1000
+        horizon = 600
         if (
             iter_idx >= start_dictionary_learning_idx - 1
             and iter_idx % update_dictionary_interval == 0
@@ -231,7 +231,7 @@ def PEARLS(
             batch_stop_idx = min(batch_len - 1, batch_idx + horizon)
 
             if batch_idx - num_samples_pitch < 0:
-                prev_batch_start_idx = batch_len - (num_samples_pitch - batch_idx) + 1
+                prev_batch_start_idx = int(batch_len - (num_samples_pitch - batch_idx) + 1)
                 temp_prev_batch = prev_batch
 
             else:

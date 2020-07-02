@@ -41,6 +41,7 @@ def dictionary_update(
         batch_for_est = batch[batch_start_idx : batch_idx + 1, :]
         start_update_idx = 0
     else:
+        #breakpoint()
         batch_for_est = np.concatenate(
             (prev_batch[prev_batch_start_idx:, :], batch[:batch_idx, :]), axis=0,
         )
@@ -108,9 +109,11 @@ def dictionary_update(
         batch[rows_to_change, columns_to_change] = new_batch[
             start_update_idx:idx_update, :
         ]
+        breakpoint()
+        # TODO: SOMETHINGS HAPPENING HERE THAT SHOULDN'T BE HAPPENING... :(
         if prev_batch is not None:
             prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[
-                :start_update_idx, :
+                :prev_batch_start_idx, :
             ]
 
     return (

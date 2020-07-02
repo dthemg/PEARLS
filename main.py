@@ -11,8 +11,9 @@ if __name__ == "__main__":
     sample_rate, data = wavfile.read(DATA_PATH, mmap=False)
 
     """Test code"""
-    N = 1000
-    signal = data[10000 : 10000 + N, 0]
+    N = 10000
+    S = 10000
+    signal = data[S : S + N, 0]
     forgetting_factor = 0.995
     smoothness_factor = 1e4
     max_num_harmonics = 3
