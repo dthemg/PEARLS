@@ -4,6 +4,7 @@
 import numpy as np
 from tqdm import tqdm
 
+from penalty_update import update_penalty_factors
 from dictionary_update import dictionary_update
 from gradient_descent import proximial_gradient_update
 from rls_update import rls_update
@@ -20,9 +21,9 @@ TO DO:
 * Do some basic optimization
 
 IN PROGRESS:
-* Penalty parameter updates
 
 DONE:
+* Penalty parameter updates
 * Dictionary learning scheme
 * Initialization
 * Proximal gradient descent
@@ -172,50 +173,15 @@ def PEARLS(
 
         # Update penalty parameters
         if iter_idx >= window_length and (iter_idx + 1) % 40 == 0:
-
-            innerProdIndices = np.arange(iter_idx - (window_length - 1), iter_idx + 1)
-
-            if window_length > batch_idx + 1:
-                diff = window_length - batch_idx - 1
-                signal_section = signal[innerProdIndices]
-                forgetting_vec = 
-                forgetting_vec = np.power(
-                    forgetting_factor, np.flip(np.arange(window_length))
-                )
-                prev_batch_section = prev_batch[-(diff):, :]
-                prev_batch_section = batch[:batch_idx + 1, :]
-                max_norm = np.max(
-                    np.abs(
-                        np.dot(
-                            prev_batch_section.conj().T,
-                            signal_section[:diff]
-                            * forgetting_vec[:diff],
-                        )
-                        + np.dot(
-                            prev_batch_section.conj().T,
-                            signal_section[diff:]
-                            * forgetting_vec[diff:],
-                        )
-                    )
-                )
-            else:
-                batch_section = np.arange(
-                    batch_idx - (window_length - 1), batch_idx
-                )
-                max_norm = np.max(
-                    np.abs(
-                        np.dot(
-                            batch[batch_section, :].conj().T,
-                            signal[batch_section]
-                            * np.power(
-                                forgetting_factor, np.flip(np.arange(window_length - 1))
-                            ),
-                        )
-                    )
-                )
-
-            penalty_factor_1 = 0.1 * max_norm
-            penalty_factor_2 = 1 * max_norm
+            penalty_factor_1, penalty_factor_2 = update_penalty_factors(
+                batch,
+                prev_batch,
+                window_length,
+                signal,
+                iter_idx,
+                batch_idx,
+                forgetting_factor,
+            )
 
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
