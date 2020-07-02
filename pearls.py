@@ -175,46 +175,47 @@ def PEARLS(
 
             innerProdIndices = np.arange(iter_idx - (window_length - 1), iter_idx + 1)
 
-            if window_length > batch_idx:
-                deltaDiff = window_length - batch_idx - 1
-                dForInnerProd = signal[innerProdIndices]
-                lambdaFactForInnerProd = np.power(
+            if window_length > batch_idx + 1:
+                diff = window_length - batch_idx - 1
+                signal_section = signal[innerProdIndices]
+                forgetting_vec = 
+                forgetting_vec = np.power(
                     forgetting_factor, np.flip(np.arange(window_length))
                 )
-                AOldForInnerProd = prev_batch[-(deltaDiff):, :]
-                AForInnerProd = batch[:batch_idx, :]
-                maxNorm = np.max(
+                prev_batch_section = prev_batch[-(diff):, :]
+                prev_batch_section = batch[:batch_idx + 1, :]
+                max_norm = np.max(
                     np.abs(
                         np.dot(
-                            AOldForInnerProd.conj().T,
-                            dForInnerProd[:deltaDiff]
-                            * lambdaFactForInnerProd[:deltaDiff],
+                            prev_batch_section.conj().T,
+                            signal_section[:diff]
+                            * forgetting_vec[:diff],
                         )
                         + np.dot(
-                            AForInnerProd.conj().T,
-                            dForInnerProd[deltaDiff:]
-                            * lambdaFactForInnerProd[deltaDiff:],
+                            prev_batch_section.conj().T,
+                            signal_section[diff:]
+                            * forgetting_vec[diff:],
                         )
                     )
                 )
             else:
-                AInnerProdIndices = np.arange(
+                batch_section = np.arange(
                     batch_idx - (window_length - 1), batch_idx
                 )
-                maxNorm = np.max(
+                max_norm = np.max(
                     np.abs(
                         np.dot(
-                            batch[AInnerProdIndices, :].conj().T,
-                            signal[innerProdIndices]
+                            batch[batch_section, :].conj().T,
+                            signal[batch_section]
                             * np.power(
-                                forgetting_factor, np.flip(np.arange(window_length - 2))
+                                forgetting_factor, np.flip(np.arange(window_length - 1))
                             ),
                         )
                     )
                 )
 
-            penalty_factor_1 = 0.1 * maxNorm
-            penalty_factor_2 = 1 * maxNorm
+            penalty_factor_1 = 0.1 * max_norm
+            penalty_factor_2 = 1 * max_norm
 
         # SKIP DO ACTIVE UPDATE
         # update_actives(...)
