@@ -49,12 +49,11 @@ if __name__ == "__main__":
         initial_frequency_resolution,
     )
 
-
     # Save results
     save_data(rls_filter_hist, "rls_history")
     save_data(pitch_hist, "pitch_est_history")
     save_data(signal, "input_signal")
-    
+
     settings = {
         "max_num_harmonics": max_num_harmonics,
         "minimum_pitch": minimum_pitch,
@@ -65,4 +64,3 @@ if __name__ == "__main__":
         "smoothness_factor": smoothness_factor,
     }
     save_settings(settings, "input_settings")
-    
