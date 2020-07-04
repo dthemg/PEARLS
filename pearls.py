@@ -33,7 +33,7 @@ DONE:
 
 # Create window length from forgetting factor
 def get_window_length(forgetting_factor):
-    return np.log(0.01) // np.log(forgetting_factor)
+    return int(np.log(0.01) / np.log(forgetting_factor))
 
 
 # Create new batch
@@ -67,9 +67,10 @@ def PEARLS(
     signal_length = len(signal)
     update_dictionary_interval = 100
 
-    ##### ADDITIONAL CONSTANTS #####
     # Number of samples for dictionary update
-    num_samples_pitch = np.floor(45 * 1e-3 * sampling_frequency)
+    num_samples_pitch = int(
+        np.floor(45 * 1e-3 * sampling_frequency)
+    )
 
     # Length of dictionary
     batch_len = 2000
@@ -82,7 +83,6 @@ def PEARLS(
     step_size = 1e-4
     max_gradient_iterations = 20
 
-    ##### INITIALIZE CANDIDATES #####
     # Initialize frequency candidates
     pitch_candidates = np.arange(
         minimum_pitch, maximum_pitch + 1, init_freq_resolution, dtype=float_dtype
@@ -98,27 +98,18 @@ def PEARLS(
     # Define time indexes
     time = np.arange(signal_length)
 
-    # Define batch indicies
-    time_batch = np.arange(batch_len)
-
     # Define 45 ms batch
     (batch_exponent, batch_exponent_no_phase, batch,) = get_new_batch(
-        time_batch, batch_len, frequency_matrix, sampling_frequency
+        np.arange(batch_len), batch_len, frequency_matrix, sampling_frequency
     )
     prev_batch = batch
 
-    ##### DEFINE PENALTY WINDOW #####
-    # Define the window length
-    window_length = 50  # get_window_length(forgetting_factor)
+    # Define the window length for penalty update
+    window_length = get_window_length(forgetting_factor)
 
-    ##### INITIALIZE VARIABLES #####
-    # Get first candidate vector
+    # Initialize coariances
     batch_vector = batch[0, :][np.newaxis].T
-
-    # Initial estimate of covariance matrix (R(t))
     cov_matrix = batch_vector * batch_vector.conj().T
-
-    # Initial value of candidate value vector (r(t))
     cov_vector = signal[0] * batch_vector
 
     # Initialize filter weights
@@ -131,11 +122,8 @@ def PEARLS(
     # Pitch history
     pitch_history = np.zeros((num_pitch_candidates, signal_length))
 
-    ##### PERFORM ALGORITHM #####
-
+    # Main algorithm
     for iter_idx, signal_value in enumerate(tqdm(signal)):
-        # print("SAMPLE NUMBER:", iter_idx)
-
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
 
@@ -172,7 +160,7 @@ def PEARLS(
         cov_vector = forgetting_factor * cov_vector + batch_vector * sample
 
         # Update penalty parameters
-        if iter_idx >= window_length and (iter_idx + 1) % 40 == 0:
+        if iter_idx >= window_length and iter_idx % 400 == 0:
             penalty_factor_1, penalty_factor_2 = update_penalty_factors(
                 batch,
                 prev_batch,
@@ -183,10 +171,7 @@ def PEARLS(
                 forgetting_factor,
             )
 
-        # SKIP DO ACTIVE UPDATE
-        # update_actives(...)
-
-        ##### UPDATE COEFFICIENTS ######
+        # Update RLS coefficients
         coeffs_estimate = proximial_gradient_update(
             coeffs_estimate,
             cov_matrix,
@@ -199,41 +184,36 @@ def PEARLS(
             step_size,
         )
 
-        ##### UPDATE RLS FILTER #####
-        # 100 -> 10
-        start_update_rls_idx = 9  # Should be 100 - 1
+        # Update RLS Filter
+        start_update_rls_idx = 99
         if iter_idx > start_update_rls_idx:
             rls_filter = rls_update(
                 rls_filter, cov_matrix, cov_vector, max_num_harmonics, smoothness_factor
             )
             rls_filter_history[:, iter_idx] = rls_filter.ravel()
 
-        ##### DICTIONARY LEARNING #####
-        start_dictionary_learning_idx = 1000
+        # Update frequency candidates
+        start_dictionary_learning_idx = 2000
         horizon = 600
         if (
             iter_idx >= start_dictionary_learning_idx - 1
-            and iter_idx % update_dictionary_interval == 0
+            and (iter_idx % update_dictionary_interval) == 0
         ):
-            print("Dictionary learning")
-            print(f"batch idx: {batch_idx}, iter_idx: {iter_idx}")
-
             # Find start and stop indicies for this batch
-            start_idx_time = max(iter_idx - num_samples_pitch + 1, 1)
+            start_idx_time = max(iter_idx - num_samples_pitch, 0)
             stop_idx_time = min(iter_idx + horizon, signal_length)
 
             pitch_limit = init_freq_resolution / 2
 
-            reference_signal = signal[start_idx_time : iter_idx + 1]
+            reference_signal = signal[start_idx_time:iter_idx]
 
             # If necessary find start index of previous batch
-            batch_start_idx = max(0, batch_idx - num_samples_pitch + 1)
-            batch_stop_idx = min(batch_len - 1, batch_idx + horizon)
+            batch_start_idx = max(batch_idx - num_samples_pitch, 0)
+            batch_stop_idx = min(batch_idx + horizon, batch_len)
 
-            if batch_idx - num_samples_pitch < 0:
-                prev_batch_start_idx = int(batch_len - (num_samples_pitch - batch_idx) + 1)
+            if batch_start_idx - num_samples_pitch < 0:
+                prev_batch_start_idx = batch_len + batch_idx - num_samples_pitch
                 temp_prev_batch = prev_batch
-
             else:
                 prev_batch_start_idx = None
                 temp_prev_batch = None

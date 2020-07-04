@@ -27,40 +27,24 @@ def dictionary_update(
     prev_batch_start_idx,
 ):
     """Update the pitch frequency grid"""
+
     rls_filter_matrix = rls_filter.reshape(
         max_num_harmonics, num_pitch_candidates, order="F"
     )
-    rows_to_change = np.arange(batch_start_idx, batch_stop_idx + 1, dtype=int)[
+    rows_to_change = np.arange(batch_start_idx, batch_stop_idx, dtype=int)[
         :, np.newaxis
     ]
     pitch_norms = np.linalg.norm(rls_filter_matrix, axis=0)
-
-    batch_time = time[start_index_time : (stop_index_time + 1)]
+    batch_time = time[start_index_time:stop_index_time]
 
     if prev_batch is None:
-        batch_for_est = batch[batch_start_idx : batch_idx + 1, :]
-        start_update_idx = 0
+        batch_update_idx = 0
     else:
-        #breakpoint()
-        batch_for_est = np.concatenate(
-            (prev_batch[prev_batch_start_idx:, :], batch[:batch_idx, :]), axis=0,
-        )
-        start_update_idx = len(batch_time) - (batch_stop_idx) - 1
+        batch_update_idx = len(batch) - prev_batch_start_idx
 
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
     peak_idxs = [i for i, is_peak in enumerate(peak_locations) if is_peak]
-
-    # If no peaks are found, skip dictionary learning (Probably unnecessary...)
-    if (~peak_locations).all():
-        return (
-            batch,
-            batch_exponent,
-            batch_exponent_no_phase,
-            prev_batch,
-            pitch_candidates,
-            rls_filter,
-        )
 
     # Do dictionary learning
     for peak_idx in peak_idxs:
@@ -97,23 +81,22 @@ def dictionary_update(
             reference_signal, new_batch_exponent_no_phase, max_num_harmonics
         )
         new_batch = np.exp(1j * new_batch_exponent)
-        idx_update = start_update_idx + len(rows_to_change)
+        idx_update = batch_update_idx + len(rows_to_change)
 
         # Assign new values
         batch_exponent_no_phase[
             rows_to_change, columns_to_change
-        ] = new_batch_exponent_no_phase[start_update_idx:idx_update, :]
+        ] = new_batch_exponent_no_phase[batch_update_idx:idx_update, :]
         batch_exponent[rows_to_change, columns_to_change] = new_batch_exponent[
-            start_update_idx:idx_update, :
+            batch_update_idx:idx_update, :
         ]
         batch[rows_to_change, columns_to_change] = new_batch[
-            start_update_idx:idx_update, :
+            batch_update_idx:idx_update, :
         ]
-        breakpoint()
-        # TODO: SOMETHINGS HAPPENING HERE THAT SHOULDN'T BE HAPPENING... :(
+
         if prev_batch is not None:
             prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[
-                :prev_batch_start_idx, :
+                prev_batch_start_idx, :
             ]
 
     return (
