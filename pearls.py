@@ -68,7 +68,9 @@ def PEARLS(
     update_dictionary_interval = 100
 
     # Number of samples for dictionary update
-    num_samples_pitch = int(np.floor(45 * 1e-3 * sampling_frequency))
+    num_samples_pitch = int(
+        np.floor(45 * 1e-3 * sampling_frequency)
+    )
 
     # Length of dictionary
     batch_len = 2000
