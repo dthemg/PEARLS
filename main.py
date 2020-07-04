@@ -5,6 +5,15 @@ import numpy as np
 import pearls
 
 
+def save_file(data, filename):
+    
+    os.makedirs("results", exist_ok=True)
+    save_path = os.path.join("results", filename)
+    print(f"Saving {save_path}...")
+    np.save(save_path, data)
+
+
+
 if __name__ == "__main__":
     """Load data"""
     DATA_PATH = os.path.join("data", "bach_air.wav")
@@ -33,4 +42,5 @@ if __name__ == "__main__":
         initial_frequency_resolution,
     )
 
-    breakpoint()
+    save_file(rls_filter_hist, "rls_history")
+    save_file(pitch_hist, "pitch_est_history")
