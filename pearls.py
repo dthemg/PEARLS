@@ -125,10 +125,8 @@ def PEARLS(
         # Store current estimates
         pitch_history[:, iter_idx] = pitch_candidates
 
-        ##### SAMPLE SELECTION #####
-        batch_idx = iter_idx % batch_len
-
         # Renew matrix if batch is filled
+        batch_idx = iter_idx % batch_len
         if batch_idx == 0:
 
             prev_batch = batch

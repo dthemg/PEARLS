@@ -1,4 +1,6 @@
 import os
+import json
+
 from scipy.io import wavfile
 import numpy as np
 
@@ -7,9 +9,9 @@ import pearls
 
 def save_data(data, filename):
     os.makedirs("results", exist_ok=True)
-    save_path = os.path.join("results", filename)
+    save_path = os.path.join("results", filename + ".txt")
     print(f"Saving {save_path}...")
-    np.save(save_path, data)
+    np.savetxt(save_path, data, delimiter=",")
 
 
 def save_settings(settings, filename):
@@ -26,12 +28,18 @@ if __name__ == "__main__":
     sample_rate, data = wavfile.read(DATA_PATH, mmap=False)
 
     """Test code"""
-    N = 10000
+    N = 100
     S = 10000
     signal = data[:, 0]
+
+    freq = 250
+    time = np.arange(10000)
+    sample_rate = 44100
+    signal = np.sin(time/sample_rate * 2 * np.pi * freq)
+    signal[5000:] = np.sin(time[5000:]/sample_rate * 2 * np.pi * 200)
     forgetting_factor = 0.995
     smoothness_factor = 1e4
-    max_num_harmonics = 5
+    max_num_harmonics = 1
     sampling_frequency = sample_rate
     minimum_pitch = 50
     maximum_pitch = 500
