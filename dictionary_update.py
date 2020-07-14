@@ -3,7 +3,7 @@ import numpy as np
 MIN_PITCH_RATIO = 0.05
 MIN_HARMONIC_RATIO = 0.2
 DEFAULT_NUM_SEARCH_POINTS = 2 ** 20
-GRID_TOLERANCE = 1 # Hz
+GRID_TOLERANCE = 1  # Hz
 
 
 def dictionary_update(
@@ -132,7 +132,7 @@ def _interval_pitch_search(
     a = np.argmax(frequency_grid > search_range[0])
     b = np.argmax(frequency_grid > search_range[1]) - 1
     center_freq_lower, center_freq_upper = frequency_grid[a], frequency_grid[b]
-    
+
     m = (a + b) // 2
 
     # Zoom in until we are sufficiently close to a frequency
@@ -141,12 +141,19 @@ def _interval_pitch_search(
         center_freq_upper = (frequency_grid[m] + frequency_grid[b]) / 2
 
         match_lower = frequency_match(
-            signal, signal_length, sampling_frequency, center_freq_lower, highest_harmonic
+            signal,
+            signal_length,
+            sampling_frequency,
+            center_freq_lower,
+            highest_harmonic,
         )
         match_upper = frequency_match(
-            signal, signal_length, sampling_frequency, center_freq_upper, highest_harmonic
+            signal,
+            signal_length,
+            sampling_frequency,
+            center_freq_upper,
+            highest_harmonic,
         )
-        
 
         if match_lower > match_upper:
             b = m
@@ -154,7 +161,6 @@ def _interval_pitch_search(
             a = m
 
         m = (a + b) // 2
-
 
     return frequency_grid[(a + b) // 2]
 
