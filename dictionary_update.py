@@ -3,7 +3,7 @@ import numpy as np
 MIN_PITCH_RATIO = 0.05
 MIN_HARMONIC_RATIO = 0.2
 DEFAULT_NUM_SEARCH_POINTS = 2 ** 20
-GRID_TOLERANCE = 3
+GRID_TOLERANCE = 1 # Hz
 
 
 def dictionary_update(
@@ -122,6 +122,7 @@ def _interval_pitch_search(
     sampling_frequency,
     num_search_points=DEFAULT_NUM_SEARCH_POINTS,
 ):
+
     frequency_grid = (
         np.arange(0, num_search_points) / num_search_points * sampling_frequency
     )
@@ -130,36 +131,39 @@ def _interval_pitch_search(
     # Interval edges
     a = np.argmax(frequency_grid > search_range[0])
     b = np.argmax(frequency_grid > search_range[1]) - 1
+    center_freq_lower, center_freq_upper = frequency_grid[a], frequency_grid[b]
+    
     m = (a + b) // 2
-    _lambda = m - 1
-    mu = m + 1
 
     # Zoom in until we are sufficiently close to a frequency
-    while b - a > GRID_TOLERANCE:
-        match_lambda = frequency_match(
-            signal, signal_length, num_search_points, _lambda, highest_harmonic
-        )
-        match_mu = frequency_match(
-            signal, signal_length, num_search_points, mu, highest_harmonic
-        )
+    while center_freq_upper - center_freq_lower > GRID_TOLERANCE:
+        center_freq_lower = (frequency_grid[a] + frequency_grid[m]) / 2
+        center_freq_upper = (frequency_grid[m] + frequency_grid[b]) / 2
 
-        if match_lambda > match_mu:
-            b = mu
+        match_lower = frequency_match(
+            signal, signal_length, sampling_frequency, center_freq_lower, highest_harmonic
+        )
+        match_upper = frequency_match(
+            signal, signal_length, sampling_frequency, center_freq_upper, highest_harmonic
+        )
+        
+
+        if match_lower > match_upper:
+            b = m
         else:
-            a = mu
+            a = m
 
         m = (a + b) // 2
-        _lambda = m - 1
-        mu = m + 1
+
 
     return frequency_grid[(a + b) // 2]
 
 
-def frequency_match(signal, signal_length, num_search_points, k, highest_harmonic):
-    arr = -2j * k * np.pi * np.arange(signal_length) / num_search_points
+def frequency_match(signal, signal_length, fs, f, highest_harmonic):
+    arr_exp = -2j * np.pi * f * np.arange(signal_length) / fs
     match = 0
-    for harmonic in np.arange(1, highest_harmonic):
-        match += np.power(np.abs(np.dot(np.exp(arr * harmonic), signal)), 2)
+    for harmonic in np.arange(1, 1 + highest_harmonic):
+        match += np.power(np.abs(np.dot(np.exp(arr_exp * harmonic), signal)), 2)
     return match
 
 

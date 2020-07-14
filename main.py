@@ -32,11 +32,14 @@ if __name__ == "__main__":
     S = 10000
     signal = data[:, 0]
 
-    freq = 250
-    time = np.arange(10000)
+
+    """ Made up data """
+    freq = 225
     sample_rate = 44100
-    signal = np.sin(time/sample_rate * 2 * np.pi * freq)
-    signal[5000:] = np.sin(time[5000:]/sample_rate * 2 * np.pi * 200)
+    time = np.arange(10000) / sample_rate
+    signal = np.sin(time * 2 * np.pi * freq)
+    #signal[5000:] = np.sin(time[5000:]/sample_rate * 2 * np.pi * 200)
+
     forgetting_factor = 0.995
     smoothness_factor = 1e4
     max_num_harmonics = 1
