@@ -28,24 +28,25 @@ if __name__ == "__main__":
     sample_rate, data = wavfile.read(DATA_PATH, mmap=False)
 
     """Test code"""
-    N = 100
+    N = 40000
     S = 10000
-    signal = data[:, 0]
+    signal = data[S:S+N, 0]
 
     """ Made up data """
+    """
     freq = 225
     sample_rate = 44100
     time = np.arange(10000) / sample_rate
     signal = np.sin(time * 2 * np.pi * freq)
+    """
 
-    forgetting_factor = 0.995
-    smoothness_factor = 1e4
-    max_num_harmonics = 1
+    forgetting_factor = 0.997
+    smoothness_factor = 1e5
+    max_num_harmonics = 3
     sampling_frequency = sample_rate
     minimum_pitch = 50
-    maximum_pitch = 500
-    initial_frequency_resolution = 100
-
+    maximum_pitch = 800
+    initial_frequency_resolution = 300
     # Calculate pitch estimates
     rls_filter_hist, pitch_hist = pearls.PEARLS(
         signal,
