@@ -5,7 +5,7 @@ MIN_HARMONIC_RATIO = 0.2
 NUM_SEARCH_POINTS = 2 ** 20
 GRID_TOLERANCE = 1  # Hz
 FGRID = np.arange(0, NUM_SEARCH_POINTS) / NUM_SEARCH_POINTS
-    
+
 
 def dictionary_update(
     rls_filter,
@@ -117,10 +117,7 @@ def _find_peak_locations(arr):
 
 
 def _interval_pitch_search(
-    signal,
-    highest_harmonic,
-    search_range,
-    sampling_frequency,
+    signal, highest_harmonic, search_range, sampling_frequency,
 ):
 
     frequency_grid = FGRID * sampling_frequency
