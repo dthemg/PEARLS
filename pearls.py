@@ -21,6 +21,7 @@ TO DO:
 * Do some basic optimization
 
 IN PROGRESS:
+ * Bugfixes
 
 DONE:
 * Penalty parameter updates
@@ -68,7 +69,7 @@ def PEARLS(
     update_dictionary_interval = 100
 
     # Number of samples for dictionary update
-    num_samples_pitch = int(np.floor(45 * 1e-3 * sampling_frequency))
+    num_samples_pitch = int(np.floor(30 * 1e-3 * sampling_frequency)) # 45
 
     # Length of dictionary
     batch_len = 2000
@@ -128,8 +129,7 @@ def PEARLS(
         # Renew matrix if batch is filled
         batch_idx = iter_idx % batch_len
         if batch_idx == 0:
-
-            prev_batch = batch
+            prev_batch = batch.copy()
             upper_time_idx = min(signal_length, iter_idx + batch_len)
             time_batch = time[iter_idx:upper_time_idx]
             # If end of signal
@@ -207,7 +207,7 @@ def PEARLS(
             batch_start_idx = max(batch_idx - num_samples_pitch, 0)
             batch_stop_idx = min(batch_idx + horizon, batch_len)
 
-            if batch_start_idx - num_samples_pitch < 0:
+            if batch_idx - num_samples_pitch < 0:
                 prev_batch_start_idx = batch_len + batch_idx - num_samples_pitch
                 temp_prev_batch = prev_batch
             else:

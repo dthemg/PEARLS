@@ -37,7 +37,6 @@ if __name__ == "__main__":
     sample_rate = 44100
     time = np.arange(10000) / sample_rate
     signal = np.sin(time * 2 * np.pi * freq)
-    # signal[5000:] = np.sin(time[5000:]/sample_rate * 2 * np.pi * 200)
 
     forgetting_factor = 0.995
     smoothness_factor = 1e4

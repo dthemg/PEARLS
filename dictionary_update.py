@@ -2,9 +2,10 @@ import numpy as np
 
 MIN_PITCH_RATIO = 0.05
 MIN_HARMONIC_RATIO = 0.2
-DEFAULT_NUM_SEARCH_POINTS = 2 ** 20
+NUM_SEARCH_POINTS = 2 ** 20
 GRID_TOLERANCE = 1  # Hz
-
+FGRID = np.arange(0, NUM_SEARCH_POINTS) / NUM_SEARCH_POINTS
+    
 
 def dictionary_update(
     rls_filter,
@@ -38,9 +39,9 @@ def dictionary_update(
     batch_time = time[start_index_time:stop_index_time]
 
     if prev_batch is None:
-        batch_update_idx = 0
+        prev_stop_idx = 0
     else:
-        batch_update_idx = len(batch) - prev_batch_start_idx
+        prev_stop_idx = len(batch) - prev_batch_start_idx
 
     # Get pitch peaks
     peak_locations = _find_peak_locations(pitch_norms)
@@ -81,22 +82,22 @@ def dictionary_update(
             reference_signal, new_batch_exponent_no_phase, max_num_harmonics
         )
         new_batch = np.exp(1j * new_batch_exponent)
-        idx_update = batch_update_idx + len(rows_to_change)
+        idx_update = prev_stop_idx + len(rows_to_change)
 
         # Assign new values
         batch_exponent_no_phase[
             rows_to_change, columns_to_change
-        ] = new_batch_exponent_no_phase[batch_update_idx:idx_update, :]
+        ] = new_batch_exponent_no_phase[prev_stop_idx:idx_update, :]
         batch_exponent[rows_to_change, columns_to_change] = new_batch_exponent[
-            batch_update_idx:idx_update, :
+            prev_stop_idx:idx_update, :
         ]
         batch[rows_to_change, columns_to_change] = new_batch[
-            batch_update_idx:idx_update, :
+            prev_stop_idx:idx_update, :
         ]
 
         if prev_batch is not None:
             prev_batch[prev_batch_start_idx:, columns_to_change] = new_batch[
-                prev_batch_start_idx, :
+                :prev_stop_idx, :
             ]
 
     return (
@@ -120,12 +121,9 @@ def _interval_pitch_search(
     highest_harmonic,
     search_range,
     sampling_frequency,
-    num_search_points=DEFAULT_NUM_SEARCH_POINTS,
 ):
 
-    frequency_grid = (
-        np.arange(0, num_search_points) / num_search_points * sampling_frequency
-    )
+    frequency_grid = FGRID * sampling_frequency
     signal_length = len(signal)
 
     # Interval edges
