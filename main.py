@@ -30,23 +30,26 @@ if __name__ == "__main__":
     """Test code"""
     N = 40000
     S = 10000
-    signal = data[S:S+N, 0]
+    signal = data[S : S + N, 0]
 
     """ Made up data """
-    """
     freq = 225
     sample_rate = 44100
     time = np.arange(10000) / sample_rate
     signal = np.sin(time * 2 * np.pi * freq)
-    """
+
+    # Change the frequency by 50
+    freq2 = 175
+    signal[5000:] = np.sin(time[5000:] * 2 * np.pi * freq2)
 
     forgetting_factor = 0.997
     smoothness_factor = 1e5
-    max_num_harmonics = 3
+    max_num_harmonics = 1
     sampling_frequency = sample_rate
     minimum_pitch = 50
     maximum_pitch = 800
-    initial_frequency_resolution = 300
+    initial_frequency_resolution = 100
+
     # Calculate pitch estimates
     rls_filter_hist, pitch_hist = pearls.PEARLS(
         signal,

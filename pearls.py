@@ -15,13 +15,12 @@ from rls_update import rls_update
 """
 CURRENT STATUS:
 TO DO:
-* Re-structure code better
 * Sketch on visualization
-* Active block updates
 * Do some basic optimization
 
 IN PROGRESS:
- * Bugfixes
+* Active block updates
+* Bugfixes
 
 DONE:
 * Penalty parameter updates
