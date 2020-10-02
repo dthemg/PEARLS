@@ -3,6 +3,7 @@
 
 import numpy as np
 from tqdm import tqdm
+from collections import namedtuple
 
 from penalty_update import update_penalty_factors
 from dictionary_update import dictionary_update
@@ -10,6 +11,7 @@ from gradient_descent import proximial_gradient_update
 from rls_update import rls_update
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
+# http://www.maths.lu.se/fileadmin/maths/personal_staff/Andreas_Jakobsson/openPEARLS.pdf
 
 
 """
@@ -35,6 +37,9 @@ DONE:
 def get_window_length(forgetting_factor):
     return int(np.log(0.01) / np.log(forgetting_factor))
 
+# Conjugate transpose
+def ct(arr):
+    return arr.conj().T
 
 # Create new batch
 def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequency):
@@ -49,6 +54,86 @@ def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequen
     batch_exponent_no_phase = batch_exponent.copy()
     batch = np.exp(1j * batch_exponent.copy())
     return batch_exponent, batch_exponent_no_phase, batch
+
+def as_column(arr):
+    return arr.reshape(len(arr), 1)
+
+
+class Pearls:
+    def __init__(
+        self,
+        signal: np.array,
+        lambda_: float,
+        xi: float,
+        H: int,
+        fs: float,
+        f_int: tuple,
+        f_spacing: float,
+        A_int: int,
+        A_size: int,
+        K_msecs: float,
+        p1: float,
+        p2: float,
+        ss: float,
+        mgi: int
+    ):
+        """
+        signal:     input signal (1 channel)
+        lambda:     forgetting factor
+        xi:         smoothing factor
+        H:          maximum number of harmonics
+        fs:         sampling frequency
+        f_int:      (min, max) frequency search interval
+        f_spacing:  initial spacing between frequencies
+        A_int:      interval for frequency dictionary update
+        A_size:     size of frequency dictionary in samples
+        K_msecs:    number of milliseconds to produce a pitch
+        p1:         penalty factor 1
+        p2:         penalty factor 2
+        ss:         step size for gradient descent
+        mgi:        max gradient iterations for gradient descent
+        """
+        self.s = signal
+        self.complex_dtype = "complex_"
+        self.float_dtype = "float64"
+        self.L = len(signal)
+
+        self.lambda_ = lambda_
+        self.xi = xi
+        self.H = H
+        self.fs = fs
+        self.f_int = f_int
+        self.f_spacing = f_spacing
+        self.A_int = A_int
+        self.A_size = A_size
+        self.K = int(np.floor(K_msecs * 1e-3 * fs))
+        self.p1 = p1
+        self.p2 = p2
+        self.ss = ss
+        self.mgi = mgi
+        self.t = np.arange(self.L) / self.fs
+        self.w_len = get_window_length(self.lambda_)
+
+    def initialize_algorithm(self):
+        # Initialize frequency candidates & frequency matrix
+        self.p = np.arange(self.f_int[0], self.f_int[1] + 0.01, self.f_spacing, dtype=self.float_dtype)
+        self.n_p = len(self.p)
+        self.n_coef = self.n_p * self.H
+        self.f_mat = as_column(np.arange(1, self.H + 1)) * self.p
+
+        # Initialize A as shape (number of pitches * harmonics, samples to generate a pitch)
+        freqs = self.f_mat.ravel()
+        self.s_idx = self.K
+        freqs = self.f_mat.ravel() * as_column(self.t[:self.s_idx])
+        t_pitch = self.t[:self.s_idx]
+        self.A = np.exp(2 * np.pi * 1j * freqs * t_pitch)
+        
+        # Initialize covariance matrix
+        self.R = np.zeros((n_coef, n_coef))
+        self.r = np.zeros(n_coef)
+
+
+
 
 
 def PEARLS(
