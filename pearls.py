@@ -72,8 +72,6 @@ class Pearls:
         xi: float,
         H: int,
         fs: float,
-        f_int: tuple,
-        f_spacing: float,
         A_int: int,
         A_size: int,
         K_msecs: float,
@@ -88,8 +86,6 @@ class Pearls:
         xi:         smoothing factor
         H:          maximum number of harmonics
         fs:         sampling frequency
-        f_int:      (min, max) frequency search interval
-        f_spacing:  initial spacing between frequencies
         A_int:      interval for frequency dictionary update
         A_size:     size of frequency dictionary in samples
         K_msecs:    number of milliseconds to produce a pitch
@@ -107,8 +103,6 @@ class Pearls:
         self.xi = xi
         self.H = H
         self.fs = fs
-        self.f_int = f_int
-        self.f_spacing = f_spacing
         self.A_int = A_int
         self.A_size = A_size
         self.K = int(np.floor(K_msecs * 1e-3 * fs))
@@ -119,14 +113,27 @@ class Pearls:
         self.t = np.arange(self.L) / self.fs
         self.w_len = get_window_length(self.lambda_)
 
-    def initialize_algorithm(self):
-        # Initialize frequency candidates & frequency matrix
-        self.p = np.arange(
-            self.f_int[0], self.f_int[1] + 0.01, self.f_spacing, dtype=self.float_dtype
+    def collect_active(self):
+        # Assemble and return active parts
+        pass
+
+    def update_covariance(self, s_val: float):
+        """
+        s_val:      signal value
+        """
+        pass
+
+    def initialize_algorithm(self, f_int: tuple, f_spacing: float):
+        """
+        f_int:      (min, max) frequency search interval
+        f_spacing:  initial spacing between frequencies
+        """
+        # Initialize frequency matrix
+        ps = np.arange(
+            f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype
         )
-        self.n_p = len(self.p)
-        self.n_coef = self.n_p * self.H
-        self.f_mat = as_column(np.arange(1, self.H + 1)) * self.p
+        self.n_p = len(ps)
+        self.f_mat = as_column(np.arange(1, self.H + 1)) * ps
         self.f_active = [True] * self.n_p
 
         # Initialize starting index at num values for pitch
@@ -142,6 +149,9 @@ class Pearls:
         self.r = self.s[self.s_idx] * np.conj(self.a)
         
         # Initialize RLS filter coefficients
+        n_coef = self.n_p * self.H
+        self.rls = np.zeros(n_coef, dtype=self.complex_dtype)
+
         # Continue here...
 
 

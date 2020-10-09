@@ -16,8 +16,6 @@ if __name__ == "__main__":
         xi=1e5,
         H=2,
         fs=fs,
-        f_int=(200, 600),
-        f_spacing=200,
         A_int=1000,
         A_size=1000000,  # Might not need anymore?
         K_msecs=2,
@@ -27,4 +25,7 @@ if __name__ == "__main__":
         mgi=10,
     )
 
-    P.initialize_algorithm()
+    P.initialize_algorithm(
+        f_int=(200, 600),
+        f_spacing=200
+    )
