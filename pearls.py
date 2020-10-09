@@ -2,8 +2,8 @@
 # To add a new markdown cell, type ' [markdown]'
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
-from collections import namedtuple
 
 from penalty_update import update_penalty_factors
 from dictionary_update import dictionary_update
@@ -37,9 +37,11 @@ DONE:
 def get_window_length(forgetting_factor):
     return int(np.log(0.01) / np.log(forgetting_factor))
 
+
 # Conjugate transpose
 def ct(arr):
     return arr.conj().T
+
 
 # Create new batch
 def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequency):
@@ -55,9 +57,12 @@ def get_new_batch(time_vector, vector_length, frequency_matrix, sampling_frequen
     batch = np.exp(1j * batch_exponent.copy())
     return batch_exponent, batch_exponent_no_phase, batch
 
+
 def as_column(arr):
     return arr.reshape(len(arr), 1)
 
+def as_row(arr):
+    return arr.reshape(1, len(arr))
 
 class Pearls:
     def __init__(
@@ -75,7 +80,7 @@ class Pearls:
         p1: float,
         p2: float,
         ss: float,
-        mgi: int
+        mgi: int,
     ):
         """
         signal:     input signal (1 channel)
@@ -116,22 +121,28 @@ class Pearls:
 
     def initialize_algorithm(self):
         # Initialize frequency candidates & frequency matrix
-        self.p = np.arange(self.f_int[0], self.f_int[1] + 0.01, self.f_spacing, dtype=self.float_dtype)
+        self.p = np.arange(
+            self.f_int[0], self.f_int[1] + 0.01, self.f_spacing, dtype=self.float_dtype
+        )
         self.n_p = len(self.p)
         self.n_coef = self.n_p * self.H
         self.f_mat = as_column(np.arange(1, self.H + 1)) * self.p
+        self.f_active = [True] * self.n_p
 
-        # Initialize A as shape (number of pitches * harmonics, samples to generate a pitch)
-        freqs = self.f_mat.ravel()
-        self.s_idx = self.K
-        freqs = self.f_mat.ravel() * as_column(self.t[:self.s_idx])
-        t_pitch = self.t[:self.s_idx]
-        self.A = np.exp(2 * np.pi * 1j * freqs * t_pitch)
+        # Initialize starting index at num values for pitch
+        self.s_idx = self.K - 1
+
+        # Initialize pitch-time matrix/vector
+        a_no_t = as_column(np.exp(2 * np.pi * 1j * self.f_mat.ravel()))
+        self.A = a_no_t * self.t[self.s_idx - self.K + 1: self.s_idx + 1]
+        self.a = a_no_t * self.t[self.s_idx]
+
+        # Initialize covariance matrix/vector
+        self.R = self.a @ ct(self.a)
+        self.r = self.s[self.s_idx] * np.conj(self.a)
         
-        # Initialize covariance matrix
-        self.R = np.zeros((n_coef, n_coef))
-        self.r = np.zeros(n_coef)
-
+        # Initialize RLS filter coefficients
+        # Continue here...
 
 
 

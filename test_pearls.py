@@ -11,20 +11,20 @@ if __name__ == "__main__":
     fs = 44100
     signal = pure_sinusoid(400, fs, 1000)
     P = Pearls(
-        signal = signal,
-        lambda_ = 0.997,
-        xi = 1e5,
-        H = 1,
-        fs = fs,
-        f_int = (200, 600),
-        f_spacing = 200,
-        A_int = 1000,
-        A_size = 1000000, # Might not need anymore?
-        K_msecs = 2,
-        p1 = 4,
-        p2 = 80,
-        ss = 1e-4,
-        mgi = 10
+        signal=signal,
+        lambda_=0.997,
+        xi=1e5,
+        H=2,
+        fs=fs,
+        f_int=(200, 600),
+        f_spacing=200,
+        A_int=1000,
+        A_size=1000000,  # Might not need anymore?
+        K_msecs=2,
+        p1=4,
+        p2=80,
+        ss=1e-4,
+        mgi=10,
     )
 
     P.initialize_algorithm()
