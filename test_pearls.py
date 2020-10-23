@@ -25,7 +25,5 @@ if __name__ == "__main__":
         mgi=10,
     )
 
-    P.initialize_algorithm(
-        f_int=(200, 600),
-        f_spacing=200
-    )
+    P.initialize_variables(f_int=(200, 600), f_spacing=200)
+    P.run_algorithm()
