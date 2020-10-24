@@ -16,9 +16,7 @@ if __name__ == "__main__":
 		xi=1e5,
 		H=2,
 		fs=fs,
-		A_int=1000,
-		A_size=1000000,  # Might not need anymore?
-		K_msecs=2,
+		K_msecs=0.1,
 		p1=4,
 		p2=80,
 		ss=1e-4,

@@ -22,8 +22,6 @@ class Pearls:
 		xi: float,
 		H: int,
 		fs: float,
-		A_int: int,
-		A_size: int,
 		K_msecs: float,
 		p1: float,
 		p2: float,
@@ -36,8 +34,6 @@ class Pearls:
 		xi:         smoothing factor
 		H:          maximum number of harmonics
 		fs:         sampling frequency
-		A_int:      interval for frequency dictionary update
-		A_size:     size of frequency dictionary in samples
 		K_msecs:    number of milliseconds to produce a pitch
 		p1:         penalty factor 1
 		p2:         penalty factor 2
@@ -53,16 +49,12 @@ class Pearls:
 		self.xi = xi
 		self.H = H
 		self.fs = fs
-		self.A_int = A_int
-		self.A_size = A_size
 		self.K = int(np.floor(K_msecs * 1e-3 * fs))
 		self.p1 = p1
 		self.p2 = p2
 		self.ss = ss
 		self.mgi = mgi
 		self.w_len = get_window_length(self.lambda_)
-		self.t_idx = self.K - 1
-		self.t = np.arange(self.L + self.K) / self.fs
 
 	def initialize_variables(self, f_int: tuple, f_spacing: float):
 		"""
@@ -75,17 +67,17 @@ class Pearls:
 		self.f_mat = as_column(np.arange(1, self.H + 1)) * ps
 		self.f_active = [True] * n_p
 
-		# Initialize starting index at num values for pitch
-		self.s_idx = 0
+		# Initialize time variables
+		self.t = np.arange(self.L + self.K) / self.fs
+		self.t_stop = self.K
+		self.tvec = self.t[: self.t_stop]
 
 		# Initialize pitch-time matrix/vector
-		a_no_t = as_column(np.exp(2 * np.pi * 1j * self.f_mat.ravel()))
-		self.A = a_no_t * self.t[: self.K]
-		self.a = a_no_t * self.t[self.t_idx]
+		self._update_a(fs_updated=True)
 
 		# Initialize covariance matrix/vector
 		self.R = self.a @ ct(self.a)
-		self.r = self.s[self.s_idx] * np.conj(self.a)
+		self.r = self.s[0] * np.conj(self.a)
 
 		# Initialize RLS filter coefficients
 		n_coef = n_p * self.H
@@ -95,40 +87,41 @@ class Pearls:
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
 		self.freq_hist = np.zeros((n_p, self.L), dtype=self.complex_dtype)
 
-	def update_a(self, fs_updated: bool):
+	def _increment_time_vars(self):
+		"""Increment time variables"""
+		self.t_stop += 1
+		self.tvec = self.t[self.t_stop - self.K : self.t_stop]
+
+	def _update_a(self, fs_updated: bool):
 		"""Update a vector and A matrix
 		f_updated:  If updates has been done to the frequency matrix
 		"""
-		a_no_t = as_column(np.exp(2 * np.pi * 1j * self.f_mat.ravel()))
-		self.a = a_no_t * self.t[self.t_idx]
-
 		if fs_updated:
-			t_v = self.t[self.t_idx - self.K : self.t_idx]
-			self.A = np.exp(tv * 2 * np.pi * 1j * as_column(f_mat.ravel()))
+			self.A = np.exp(self.tvec * 2 * np.pi * 1j * as_column(self.f_mat.ravel()))
+			self.a = as_column(self.A[:, -1])
 		else:
+			tval = self.t[self.t_stop - 1]
+			self.a = np.exp(as_column(2 * np.pi * 1j * self.f_mat.ravel()) * tval)
 			self.A = np.roll(self.A, -1, axis=1)
 			self.A[:, -1] = self.a.ravel()
 
-		def update_covariance(self, s_val: float):
-			"""Update covariance r vector and R matrix
-			s_val:      signal value
-			"""
-			self.R = self.lambda_ * self.R + self.a @ ct(self.a)
-			self.r = self.lambda_ * self.r + s_val * c(self.a)
+	def _update_covariance(self, s_val: float):
+		"""Update covariance r vector and R matrix
+		s_val:      signal value
+		"""
+		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
+		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
-		def run_algorithm(self):
-			"""Run PEARLS algorithm through signal"""
+	def run_algorithm(self):
+		"""Run PEARLS algorithm through signal"""
 
-			# If frequency matrix has been updated
-			fs_upd = True
+		# If frequency matrix has been updated
+		fs_upd = False
 
-			for idx in range(self.L):
-				if idx % 100 == 0:
-					print("Sample {idx}/{L}")
-				self.s_idx = idx
-				self.t_idx = idx + self.K
+		for idx in range(self.L):
+			if idx % 100 == 0:
+				print(f"Sample {idx}/{self.L}")
 
-				self.update_a(fs_upd)
-				self.update_covariance(self.s[idx])
-
-				breakpoint()
+			self._increment_time_vars()
+			self._update_a(fs_upd)
+			self._update_covariance(self.s[idx])
