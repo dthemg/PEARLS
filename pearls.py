@@ -1,6 +1,8 @@
 import numpy as np
 from tqdm import tqdm
 
+import matplotlib.pyplot as plt
+
 from utils import c, ct, as_column, as_row
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
@@ -81,10 +83,14 @@ class Pearls:
 
 		# Initialize RLS filter coefficients
 		n_coef = n_p * self.H
-		self.rls = np.zeros(n_coef, dtype=self.complex_dtype)
+		self.rls = np.zeros((n_coef, 1), dtype=self.complex_dtype)
+
+		# Initialize weights
+		self.w_hat = np.zeros((n_coef, 1), dtype=self.complex_dtype)
 
 		# Initialize result history
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
+		self.w_hat_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
 		self.freq_hist = np.zeros((n_p, self.L), dtype=self.complex_dtype)
 
 	def _increment_time_vars(self):
@@ -112,6 +118,14 @@ class Pearls:
 		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
 		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
+	def _gradient_descent(self):
+		"""Perform gradient descent on parameter weights"""
+		wn_hat = self.w_hat.copy()
+		for _ in range(self.mgi):
+			v = wn_hat + self.ss * (self.r - self.R @ wn_hat)
+			vth = _soft_threshold_l1(v, self.ss * self.p1)
+			# Continue from here.
+
 	def run_algorithm(self):
 		"""Run PEARLS algorithm through signal"""
 
@@ -121,7 +135,28 @@ class Pearls:
 		for idx in range(self.L):
 			if idx % 100 == 0:
 				print(f"Sample {idx}/{self.L}")
+			sval = self.s[idx]
 
 			self._increment_time_vars()
 			self._update_a(fs_upd)
-			self._update_covariance(self.s[idx])
+			self._update_covariance(sval)
+			# update penalty parameters
+			self._gradient_descent()
+
+
+def _soft_threshold_l1(arr, alpha):
+	"""Soft L1 threshold operator for gradient descent"""
+	mval = np.maximum(np.abs(arr) - alpha, 0)
+	return mval / (mval + alpha) * arr
+
+
+def _soft_threshold_l2(arr, alpha):
+	"""Soft L2 threshold operator for gradient descent"""
+	mval = np.maximum(np.linalg.norm(arr) - alpha, 0)
+	return mval / (mval + alpha) * arr
+
+
+def _group_penalty_parameter(w_hat_p, p2):
+	"""Penalty parameter update to discourage erronous sub-octaves"""
+	denom = np.abs(w_hat_p[0]) + 1e-5
+	return p2 * np.max(1, 1 / denom)
