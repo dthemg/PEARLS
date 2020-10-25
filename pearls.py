@@ -144,6 +144,7 @@ class Pearls:
 			for p_idx in range(self.P):
 				gp = self._w_Gp(p_idx)
 				p2_p = _group_penalty_parameter(vth[gp], self.p2)
+				self.w_hat[gp] = _soft_threshold_l2(vth[gp], self.ss * p2_p)
 
 	def _w_Gp(self, p_idx):
 		"""Get set of harmonic coefficients from weights
