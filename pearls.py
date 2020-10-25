@@ -65,9 +65,9 @@ class Pearls:
 		"""
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
-		n_p = len(ps)
+		self.P = len(ps)
 		self.f_mat = as_column(np.arange(1, self.H + 1)) * ps
-		self.f_active = [True] * n_p
+		self.f_active = [True] * self.P
 
 		# Initialize time variables
 		self.t = np.arange(self.L + self.K) / self.fs
@@ -82,7 +82,7 @@ class Pearls:
 		self.r = self.s[0] * np.conj(self.a)
 
 		# Initialize RLS filter coefficients
-		n_coef = n_p * self.H
+		n_coef = self.P * self.H
 		self.rls = np.zeros((n_coef, 1), dtype=self.complex_dtype)
 
 		# Initialize weights
@@ -91,7 +91,7 @@ class Pearls:
 		# Initialize result history
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
 		self.w_hat_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
-		self.freq_hist = np.zeros((n_p, self.L), dtype=self.complex_dtype)
+		self.freq_hist = np.zeros((self.P, self.L), dtype=self.complex_dtype)
 
 	def _increment_time_vars(self):
 		"""Increment time variables"""
@@ -118,14 +118,6 @@ class Pearls:
 		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
 		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
-	def _gradient_descent(self):
-		"""Perform gradient descent on parameter weights"""
-		wn_hat = self.w_hat.copy()
-		for _ in range(self.mgi):
-			v = wn_hat + self.ss * (self.r - self.R @ wn_hat)
-			vth = _soft_threshold_l1(v, self.ss * self.p1)
-			# Continue from here.
-
 	def run_algorithm(self):
 		"""Run PEARLS algorithm through signal"""
 
@@ -143,6 +135,22 @@ class Pearls:
 			# update penalty parameters
 			self._gradient_descent()
 
+	def _gradient_descent(self):
+		"""Perform gradient descent on parameter weights"""
+		for _ in range(self.mgi):
+			v = self.w_hat + self.ss * (self.r - self.R @ self.w_hat)
+			vth = _soft_threshold_l1(v, self.ss * self.p1)
+
+			for p_idx in range(self.P):
+				gp = self._w_Gp(p_idx)
+				p2_p = _group_penalty_parameter(vth[gp], self.p2)
+
+	def _w_Gp(self, p_idx):
+		"""Get set of harmonic coefficients from weights
+		p:		pitch index
+		"""
+		return np.arange(self.H * p_idx, self.H * (p_idx + 1))
+
 
 def _soft_threshold_l1(arr, alpha):
 	"""Soft L1 threshold operator for gradient descent"""
@@ -157,6 +165,10 @@ def _soft_threshold_l2(arr, alpha):
 
 
 def _group_penalty_parameter(w_hat_p, p2):
-	"""Penalty parameter update to discourage erronous sub-octaves"""
-	denom = np.abs(w_hat_p[0]) + 1e-5
-	return p2 * np.max(1, 1 / denom)
+	"""Penalty parameter update to discourage erronous sub-octaves
+	w_hat_p:		coefficient of the first harmonic of pitch p
+	p2:				pre-configured penalty parameter p2
+	"""
+	# First harmonic is first element of col vector
+	denom = np.abs(w_hat_p[0][0]) + 1e-5
+	return p2 * max(1, 1 / denom)
