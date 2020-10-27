@@ -3,17 +3,10 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from utils import c, ct, as_column, as_row
+from utils import c, ct, as_col, as_row, r
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 # http://www.maths.lu.se/fileadmin/maths/personal_staff/Andreas_Jakobsson/openPEARLS.pdf
-
-
-def get_window_length(lambda_: float):
-	"""Get penalty window length
-	lambda_:	forgetting factor
-	"""
-	return int(np.log(0.01) / np.log(lambda_))
 
 
 class Pearls:
@@ -32,7 +25,7 @@ class Pearls:
 	):
 		"""
 		signal:     input signal (1 channel)
-		lambda:     forgetting factor
+		lambda_:     forgetting factor
 		xi:         smoothing factor
 		H:          maximum number of harmonics
 		fs:         sampling frequency
@@ -56,9 +49,9 @@ class Pearls:
 		self.p2 = p2
 		self.ss = ss
 		self.mgi = mgi
-		self.w_len = get_window_length(self.lambda_)
+		self.w_len = _get_window_length(self.lambda_)
 
-	def initialize_variables(self, f_int: tuple, f_spacing: float):
+	def initialize_variables(self, f_int: tuple, f_spacing: float) -> None:
 		"""
 		f_int:      (min, max) frequency search interval
 		f_spacing:  initial spacing between frequencies
@@ -66,7 +59,7 @@ class Pearls:
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
 		self.P = len(ps)
-		self.f_mat = as_column(np.arange(1, self.H + 1)) * ps
+		self.f_mat = as_col(np.arange(1, self.H + 1)) * ps
 		self.f_active = [True] * self.P
 
 		# Initialize time variables
@@ -74,7 +67,7 @@ class Pearls:
 		self.t_stop = self.K
 		self.tvec = self.t[: self.t_stop]
 
-		# Initialize pitch-time matrix/vector
+		# Initialize pitch-time matrix and vector
 		self._update_a(fs_updated=True)
 
 		# Initialize covariance matrix/vector
@@ -93,32 +86,32 @@ class Pearls:
 		self.w_hat_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
 		self.freq_hist = np.zeros((self.P, self.L), dtype=self.complex_dtype)
 
-	def _increment_time_vars(self):
+	def _increment_time_vars(self) -> None:
 		"""Increment time variables"""
 		self.t_stop += 1
 		self.tvec = self.t[self.t_stop - self.K : self.t_stop]
 
-	def _update_a(self, fs_updated: bool):
+	def _update_a(self, fs_updated: bool) -> None:
 		"""Update a vector and A matrix
 		f_updated:  If updates has been done to the frequency matrix
 		"""
 		if fs_updated:
-			self.A = np.exp(self.tvec * 2 * np.pi * 1j * as_column(self.f_mat.ravel()))
-			self.a = as_column(self.A[:, -1])
+			self.A = np.exp(self.tvec * 2 * np.pi * 1j * as_col(r(self.f_mat)))
+			self.a = as_col(self.A[:, -1])
 		else:
 			tval = self.t[self.t_stop - 1]
-			self.a = np.exp(as_column(2 * np.pi * 1j * self.f_mat.ravel()) * tval)
+			self.a = np.exp(as_col(2 * np.pi * 1j * r(self.f_mat)) * tval)
 			self.A = np.roll(self.A, -1, axis=1)
-			self.A[:, -1] = self.a.ravel()
+			self.A[:, -1] = r(self.a)
 
-	def _update_covariance(self, s_val: float):
+	def _update_covariance(self, s_val: float) -> None:
 		"""Update covariance r vector and R matrix
 		s_val:      signal value
 		"""
 		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
 		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
-	def run_algorithm(self):
+	def run_algorithm(self) -> dict:
 		"""Run PEARLS algorithm through signal"""
 
 		# If frequency matrix has been updated
@@ -134,42 +127,62 @@ class Pearls:
 			self._update_covariance(sval)
 			# update penalty parameters
 			self._gradient_descent()
+			# determine active set
+			# rls update
+			# update active set
+			# update dictionary
+			# Save to history
+			self._save_history(idx)
 
-	def _gradient_descent(self):
+		results = {"w_hat_hist": self.w_hat_hist, "freq_hist": self.freq_hist}
+		return results
+
+	def _save_history(self, idx) -> None:
+		self.w_hat_hist[:, idx] = r(self.w_hat)
+		self.freq_hist[:, idx] = r(self.f_mat[0, :])
+
+	def _gradient_descent(self) -> None:
 		"""Perform gradient descent on parameter weights"""
 		for _ in range(self.mgi):
 			v = self.w_hat + self.ss * (self.r - self.R @ self.w_hat)
-			vth = _soft_threshold_l1(v, self.ss * self.p1)
+			vth = _S1(v, self.ss * self.p1)
 
 			for p_idx in range(self.P):
 				gp = self._w_Gp(p_idx)
 				p2_p = _group_penalty_parameter(vth[gp], self.p2)
-				self.w_hat[gp] = _soft_threshold_l2(vth[gp], self.ss * p2_p)
+				self.w_hat[gp] = _S2(vth[gp], self.ss * p2_p)
 
-	def _w_Gp(self, p_idx):
+	def _w_Gp(self, p_idx: int) -> None:
 		"""Get set of harmonic coefficients from weights
 		p:		pitch index
 		"""
 		return np.arange(self.H * p_idx, self.H * (p_idx + 1))
 
 
-def _soft_threshold_l1(arr, alpha):
+def _S1(arr: np.ndarray, alpha: float) -> np.ndarray:
 	"""Soft L1 threshold operator for gradient descent"""
 	mval = np.maximum(np.abs(arr) - alpha, 0)
 	return mval / (mval + alpha) * arr
 
 
-def _soft_threshold_l2(arr, alpha):
+def _S2(arr: np.ndarray, alpha: float) -> np.ndarray:
 	"""Soft L2 threshold operator for gradient descent"""
 	mval = np.maximum(np.linalg.norm(arr) - alpha, 0)
 	return mval / (mval + alpha) * arr
 
 
-def _group_penalty_parameter(w_hat_p, p2):
+def _group_penalty_parameter(w_hat_p: np.ndarray, p2: float) -> float:
 	"""Penalty parameter update to discourage erronous sub-octaves
 	w_hat_p:		coefficient of the first harmonic of pitch p
-	p2:				pre-configured penalty parameter p2
+	p2:				penalty parameter p2
 	"""
 	# First harmonic is first element of col vector
 	denom = np.abs(w_hat_p[0][0]) + 1e-5
 	return p2 * max(1, 1 / denom)
+
+
+def _get_window_length(lambda_: float) -> int:
+	"""Get penalty window length
+	lambda_:	forgetting factor
+	"""
+	return int(np.log(0.01) / np.log(lambda_))
