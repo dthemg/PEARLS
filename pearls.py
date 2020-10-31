@@ -22,10 +22,11 @@ class Pearls:
 		p2: float,
 		ss: float,
 		mgi: int,
+		mu: float,
 	):
 		"""
 		signal:     input signal (1 channel)
-		lambda_:     forgetting factor
+		lambda_:    forgetting factor
 		xi:         smoothing factor
 		H:          maximum number of harmonics
 		fs:         sampling frequency
@@ -34,13 +35,15 @@ class Pearls:
 		p2:         penalty factor 2
 		ss:         step size for gradient descent
 		mgi:        max gradient iterations for gradient descent
+		mu: 		penalty update parameter
 		"""
 		self.s = signal
 		self.complex_dtype = "complex_"
-		self.float_dtype = "float64"
+		self.float_dtype = "float"
 		self.L = len(signal)
 
 		self.lambda_ = lambda_
+
 		self.xi = xi
 		self.H = H
 		self.fs = fs
@@ -49,7 +52,7 @@ class Pearls:
 		self.p2 = p2
 		self.ss = ss
 		self.mgi = mgi
-		self.w_len = _get_window_length(self.lambda_)
+		self.mu = mu
 
 	def initialize_variables(self, f_int: tuple, f_spacing: float) -> None:
 		"""
@@ -61,6 +64,10 @@ class Pearls:
 		self.P = len(ps)
 		self.f_mat = as_col(np.arange(1, self.H + 1)) * ps
 		self.f_active = [True] * self.P
+
+		# Initialize penalty update parameters
+		Delta = _get_window_length(self.lambda_)
+		self.Lambda_ = np.diag(np.power(self.lambda_, np.arange(Delta)[::-1]))
 
 		# Initialize time variables
 		self.t = np.arange(self.L + self.K) / self.fs
@@ -80,6 +87,9 @@ class Pearls:
 
 		# Initialize weights
 		self.w_hat = np.zeros((n_coef, 1), dtype=self.complex_dtype)
+
+		# Active pitch indicies
+		self.act = np.full(self.P, True)
 
 		# Initialize result history
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
@@ -111,6 +121,10 @@ class Pearls:
 		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
 		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
+	def _penalty_parameter_update(self):
+		pass
+		# eta = self.mu *
+
 	def run_algorithm(self) -> dict:
 		"""Run PEARLS algorithm through signal"""
 
@@ -125,17 +139,21 @@ class Pearls:
 			self._increment_time_vars()
 			self._update_a(fs_upd)
 			self._update_covariance(sval)
-			# update penalty parameters
+			self._penalty_parameter_update()
 			self._gradient_descent()
-			# determine active set
+			self._update_active_set()
 			# rls update
-			# update active set
 			# update dictionary
 			# Save to history
 			self._save_history(idx)
 
 		results = {"w_hat_hist": self.w_hat_hist, "freq_hist": self.freq_hist}
 		return results
+
+	def _update_active_set(self):
+		w_hat_mat = self.w_hat.reshape((self.H, self.P))
+		norms = np.linalg.norm(w_hat_mat, axis=0)
+		self.act = norms > 0
 
 	def _save_history(self, idx) -> None:
 		self.w_hat_hist[:, idx] = r(self.w_hat)
@@ -148,11 +166,11 @@ class Pearls:
 			vth = _S1(v, self.ss * self.p1)
 
 			for p_idx in range(self.P):
-				gp = self._w_Gp(p_idx)
+				gp = self._Gp(p_idx)
 				p2_p = _group_penalty_parameter(vth[gp], self.p2)
 				self.w_hat[gp] = _S2(vth[gp], self.ss * p2_p)
 
-	def _w_Gp(self, p_idx: int) -> None:
+	def _Gp(self, p_idx: int) -> None:
 		"""Get set of harmonic coefficients from weights
 		p:		pitch index
 		"""
@@ -178,7 +196,7 @@ def _group_penalty_parameter(w_hat_p: np.ndarray, p2: float) -> float:
 	"""
 	# First harmonic is first element of col vector
 	denom = np.abs(w_hat_p[0][0]) + 1e-5
-	return p2 * max(1, 1 / denom)
+	return p2 * max(1, min(1000, 1 / denom))
 
 
 def _get_window_length(lambda_: float) -> int:
