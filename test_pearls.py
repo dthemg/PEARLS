@@ -12,8 +12,10 @@ def harmonic_signal(f, fs, N, H, A):
 	return sig
 
 
-def plot_results(signal: np.ndarray, results: dict, P: Pearls):
-	fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1)
+def plot_results(
+	signal: np.ndarray, results: dict, P: Pearls, true_freq: float, true_H: int
+):
+	fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
 
 	t = np.arange(len(signal)) / P.fs
 
@@ -48,18 +50,29 @@ def plot_results(signal: np.ndarray, results: dict, P: Pearls):
 
 	ax5.plot(t, np.real(pred_signal))
 
+	# Fourier transform of signal
+	# breakpoint()
+	s_fft = np.fft.fft(signal)[: len(signal) // 2 + 1]
+	f_ax = np.linspace(0, P.fs / 2, num=(len(s_fft)))
+	ax6.plot(f_ax, np.abs(s_fft))
+	for i in range(true_H):
+		ax6.axvline(x=true_freq * (i + 1), color="r")
+	ax6.set_xlim([0, 3000])
+
 	plt.show()
 
 
 if __name__ == "__main__":
 	fs = 44100
-	H = 2
-	signal = harmonic_signal(f=2250, fs=44100, N=10000, H=H, A=10)
+	true_H = 1
+	true_freq = 400
+	signal = harmonic_signal(f=true_freq, fs=44100, N=2000, H=true_H, A=10)
+	signal += harmonic_signal(f=150, fs=44100, N=2000, H=true_H, A=50)
 	P = Pearls(
 		signal=signal,
-		lambda_=0.98,
+		lambda_=0.97,
 		xi=1e5,
-		H=H,
+		H=true_H,
 		fs=fs,
 		K_msecs=100,
 		p1=0,
@@ -69,6 +82,6 @@ if __name__ == "__main__":
 		mu=0.1,
 	)
 
-	P.initialize_variables(f_int=(2000, 3000), f_spacing=250)
+	P.initialize_variables(f_int=(100, 500), f_spacing=50)
 	results = P.run_algorithm()
-	plot_results(signal, results, P)
+	plot_results(signal, results, P, true_freq, true_H)

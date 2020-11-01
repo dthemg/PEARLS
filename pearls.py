@@ -129,7 +129,7 @@ class Pearls:
 		s_win = np.pad(s_win, (max(0, self.Delta - len(s_win)), 0), "constant")
 		eta = self.mu * np.linalg.norm(ct(self.Lambda_ @ A_win) @ s_win, ord=np.inf)
 
-		red_factor = 0.001
+		red_factor = 0.1
 		self.p1 = red_factor * 0.1 * eta
 		self.p2 = red_factor * 1 * eta
 
@@ -142,7 +142,7 @@ class Pearls:
 		for idx in range(self.L):
 			if idx % 100 == 0:
 				print(f"Sample {idx}/{self.L}")
-				# self._penalty_parameter_update(idx + 1)
+			self._penalty_parameter_update(idx + 1)
 			sval = self.s[idx]
 
 			self._increment_time_vars()
