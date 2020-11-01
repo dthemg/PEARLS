@@ -7,12 +7,12 @@ def harmonic_signal(f, fs, N, H, A):
 	t = np.arange(N) / fs
 	sig = np.zeros(N, dtype=complex)
 	for i in range(H):
-		sig += A * np.exp(t * 2 * np.pi * 1j * f * (i + 1))
+		sig += A * np.sin(t * 2 * np.pi * f * (i + 1)) + 0j
 	return sig
 
 
 def plot_results(signal: np.ndarray, results: dict, P: Pearls):
-	fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+	fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1)
 
 	t = np.arange(len(signal)) / P.fs
 
@@ -28,17 +28,20 @@ def plot_results(signal: np.ndarray, results: dict, P: Pearls):
 	ax1.plot(t, p_weights.T)
 	ax2.plot(t, abs(results["freq_hist"].T))
 
+	ax4.plot(t, results["p1_hist"])
+	ax4.plot(t, results["p2_hist"])
+
 	plt.show()
 
 
 if __name__ == "__main__":
 	fs = 44100
-	signal = harmonic_signal(f=600, fs=44100, N=1000, H=5, A=1)
+	signal = harmonic_signal(f=600, fs=44100, N=1000, H=3, A=1000)
 	P = Pearls(
 		signal=signal,
-		lambda_=0.97,
+		lambda_=0.98,
 		xi=1e5,
-		H=2,
+		H=3,
 		fs=fs,
 		K_msecs=10,
 		p1=200,
@@ -50,5 +53,5 @@ if __name__ == "__main__":
 
 	P.initialize_variables(f_int=(200, 600), f_spacing=200)
 	results = P.run_algorithm()
-
+	breakpoint()
 	plot_results(signal, results, P)

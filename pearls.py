@@ -66,8 +66,8 @@ class Pearls:
 		self.f_active = [True] * self.P
 
 		# Initialize penalty update parameters
-		Delta = _get_window_length(self.lambda_)
-		self.Lambda_ = np.diag(np.power(self.lambda_, np.arange(Delta)[::-1]))
+		self.Delta = _get_window_length(self.lambda_)
+		self.Lambda_ = np.diag(np.power(self.lambda_, np.arange(self.Delta)[::-1]))
 
 		# Initialize time variables
 		self.t = np.arange(self.L + self.K) / self.fs
@@ -94,7 +94,9 @@ class Pearls:
 		# Initialize result history
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
 		self.w_hat_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
-		self.freq_hist = np.zeros((self.P, self.L), dtype=self.complex_dtype)
+		self.freq_hist = np.zeros((self.P, self.L), dtype=self.float_dtype)
+		self.p1_hist = np.zeros(self.L, dtype=self.float_dtype)
+		self.p2_hist = np.zeros(self.L, dtype=self.float_dtype)
 
 	def _increment_time_vars(self) -> None:
 		"""Increment time variables"""
@@ -106,24 +108,29 @@ class Pearls:
 		f_updated:  If updates has been done to the frequency matrix
 		"""
 		if fs_updated:
-			self.A = np.exp(self.tvec * 2 * np.pi * 1j * as_col(r(self.f_mat)))
-			self.a = as_col(self.A[:, -1])
+			self.A = np.exp(as_col(self.tvec) * 2 * np.pi * 1j * r(self.f_mat))
+			self.a = as_col(self.A[-1, :])
 		else:
 			tval = self.t[self.t_stop - 1]
 			self.a = np.exp(as_col(2 * np.pi * 1j * r(self.f_mat)) * tval)
-			self.A = np.roll(self.A, -1, axis=1)
-			self.A[:, -1] = r(self.a)
+			self.A = np.roll(self.A, -1, axis=0)
+			self.A[-1, :] = r(self.a)
 
 	def _update_covariance(self, s_val: float) -> None:
 		"""Update covariance r vector and R matrix
 		s_val:      signal value
 		"""
-		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
-		self.r = self.lambda_ * self.r + s_val * c(self.a)
+		self.R = self.lambda_ * self.R + (1 - self.lambda_) * self.a @ ct(self.a)
+		self.r = self.lambda_ * self.r + (1 - self.lambda_) * s_val * c(self.a)
 
-	def _penalty_parameter_update(self):
-		pass
-		# eta = self.mu *
+	def _penalty_parameter_update(self, stop_idx: int):
+		A_win = self.A[-self.Delta :, :]
+		s_win = as_col(self.s[stop_idx - self.Delta : stop_idx])
+		s_win = np.pad(s_win, (max(0, self.Delta - len(s_win)), 0), "constant")
+		eta = self.mu * np.linalg.norm(ct(self.Lambda_ @ A_win) @ s_win, ord=np.inf)
+
+		self.p1 = 0.1 * eta
+		self.p2 = 1 * eta
 
 	def run_algorithm(self) -> dict:
 		"""Run PEARLS algorithm through signal"""
@@ -134,12 +141,12 @@ class Pearls:
 		for idx in range(self.L):
 			if idx % 100 == 0:
 				print(f"Sample {idx}/{self.L}")
+				self._penalty_parameter_update(idx + 1)
 			sval = self.s[idx]
 
 			self._increment_time_vars()
 			self._update_a(fs_upd)
 			self._update_covariance(sval)
-			self._penalty_parameter_update()
 			self._gradient_descent()
 			self._update_active_set()
 			# rls update
@@ -147,7 +154,12 @@ class Pearls:
 			# Save to history
 			self._save_history(idx)
 
-		results = {"w_hat_hist": self.w_hat_hist, "freq_hist": self.freq_hist}
+		results = {
+			"w_hat_hist": self.w_hat_hist,
+			"freq_hist": self.freq_hist,
+			"p1_hist": self.p1_hist,
+			"p2_hist": self.p2_hist,
+		}
 		return results
 
 	def _update_active_set(self):
@@ -158,6 +170,8 @@ class Pearls:
 	def _save_history(self, idx) -> None:
 		self.w_hat_hist[:, idx] = r(self.w_hat)
 		self.freq_hist[:, idx] = r(self.f_mat[0, :])
+		self.p1_hist[idx] = self.p1
+		self.p2_hist[idx] = self.p2
 
 	def _gradient_descent(self) -> None:
 		"""Perform gradient descent on parameter weights"""
@@ -180,13 +194,13 @@ class Pearls:
 def _S1(arr: np.ndarray, alpha: float) -> np.ndarray:
 	"""Soft L1 threshold operator for gradient descent"""
 	mval = np.maximum(np.abs(arr) - alpha, 0)
-	return mval / (mval + alpha) * arr
+	return mval / (mval + alpha + 1e-10) * arr
 
 
 def _S2(arr: np.ndarray, alpha: float) -> np.ndarray:
 	"""Soft L2 threshold operator for gradient descent"""
 	mval = np.maximum(np.linalg.norm(arr) - alpha, 0)
-	return mval / (mval + alpha) * arr
+	return mval / (mval + alpha + 1e-10) * arr
 
 
 def _group_penalty_parameter(w_hat_p: np.ndarray, p2: float) -> float:
