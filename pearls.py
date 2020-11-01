@@ -61,8 +61,9 @@ class Pearls:
 		"""
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
+		ps = np.array([100, 200, 300, 337.3, 400, 500])
 		self.P = len(ps)
-		self.f_mat = as_col(np.arange(1, self.H + 1)) * ps
+		self.f_mat = np.arange(1, self.H + 1) * as_col(ps)
 		self.f_active = [True] * self.P
 
 		# Initialize penalty update parameters
@@ -116,12 +117,12 @@ class Pearls:
 			self.A = np.roll(self.A, -1, axis=0)
 			self.A[-1, :] = r(self.a)
 
-	def _update_covariance(self, s_val: float) -> None:
-		"""Update covariance r vector and R matrix
+	def _update_r(self, s_val: float) -> None:
+		"""Update r vector and R matrix
 		s_val:      signal value
 		"""
-		self.R = self.lambda_ * self.R + (1 - self.lambda_) * self.a @ ct(self.a)
-		self.r = self.lambda_ * self.r + (1 - self.lambda_) * s_val * c(self.a)
+		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
+		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
 	def _penalty_parameter_update(self, stop_idx: int):
 		A_win = self.A[-self.Delta :, :]
@@ -129,25 +130,23 @@ class Pearls:
 		s_win = np.pad(s_win, (max(0, self.Delta - len(s_win)), 0), "constant")
 		eta = self.mu * np.linalg.norm(ct(self.Lambda_ @ A_win) @ s_win, ord=np.inf)
 
-		red_factor = 0.001
-		self.p1 = red_factor * 0.1 * eta
-		self.p2 = red_factor * 1 * eta
+		self.p1 = 0.1 * eta
+		self.p2 = 1.0 * eta
 
 	def run_algorithm(self) -> dict:
 		"""Run PEARLS algorithm through signal"""
 
 		# If frequency matrix has been updated
 		fs_upd = False
-
 		for idx in range(self.L):
 			if idx % 100 == 0:
 				print(f"Sample {idx}/{self.L}")
-				# self._penalty_parameter_update(idx + 1)
+				self._penalty_parameter_update(idx + 1)
 			sval = self.s[idx]
 
 			self._increment_time_vars()
 			self._update_a(fs_upd)
-			self._update_covariance(sval)
+			self._update_r(sval)
 			self._gradient_descent()
 			self._update_active_set()
 			# rls update
@@ -170,7 +169,7 @@ class Pearls:
 
 	def _save_history(self, idx) -> None:
 		self.w_hat_hist[:, idx] = r(self.w_hat)
-		self.freq_hist[:, idx] = r(self.f_mat[0, :])
+		self.freq_hist[:, idx] = r(self.f_mat[:, 0])
 		self.p1_hist[idx] = self.p1
 		self.p2_hist[idx] = self.p2
 
