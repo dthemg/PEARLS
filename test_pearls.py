@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pearls import Pearls
+from utils import r
 
 
 def harmonic_signal(f, fs, N, H, A):
@@ -12,46 +13,62 @@ def harmonic_signal(f, fs, N, H, A):
 
 
 def plot_results(signal: np.ndarray, results: dict, P: Pearls):
-	fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1)
+	fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1)
 
 	t = np.arange(len(signal)) / P.fs
 
 	ax3.plot(t, np.real(signal))
 
 	w_hat_hist = results["w_hat_hist"]
+	freq_hist = results["freq_hist"]
 
 	def get_weights(arr):
 		return np.linalg.norm(arr.reshape(P.P, P.H), axis=1)
 
 	p_weights = np.apply_along_axis(get_weights, 0, w_hat_hist)
 
+	# Weight history
 	ax1.plot(t, p_weights.T)
-	ax2.plot(t, abs(results["freq_hist"].T))
+	ax2.plot(t, freq_hist.T)
 
+	# Penalty parameters hist
 	ax4.plot(t, results["p1_hist"])
 	ax4.plot(t, results["p2_hist"])
+
+	# Final prediction
+	w_hat_final = w_hat_hist[:, -1].reshape(P.P, P.H)
+	freq_final = r(freq_hist[:, -1])
+	pred_signal = np.zeros(P.L, dtype="complex")
+
+	hs = np.arange(P.H)
+	for i, row in enumerate(w_hat_final):
+		freq = freq_hist[i]
+		for h in range(P.H):
+			pred_signal += row[h] * np.exp(1j * 2 * np.pi * t * freq * (h + 1))
+
+	ax5.plot(t, np.real(pred_signal))
 
 	plt.show()
 
 
 if __name__ == "__main__":
 	fs = 44100
-	signal = harmonic_signal(f=600, fs=44100, N=1000, H=3, A=1000)
+	H = 2
+	signal = harmonic_signal(f=2250, fs=44100, N=10000, H=H, A=10)
 	P = Pearls(
 		signal=signal,
 		lambda_=0.98,
 		xi=1e5,
-		H=3,
+		H=H,
 		fs=fs,
-		K_msecs=10,
-		p1=200,
-		p2=1000,
+		K_msecs=100,
+		p1=0,
+		p2=0,
 		ss=1e-4,
 		mgi=10,
 		mu=0.1,
 	)
 
-	P.initialize_variables(f_int=(200, 600), f_spacing=200)
+	P.initialize_variables(f_int=(2000, 3000), f_spacing=250)
 	results = P.run_algorithm()
-	breakpoint()
 	plot_results(signal, results, P)
