@@ -124,7 +124,7 @@ class Pearls:
 		self.R = self.lambda_ * self.R + self.a @ ct(self.a)
 		self.r = self.lambda_ * self.r + s_val * c(self.a)
 
-	def _penalty_parameter_update(self, stop_idx: int):
+	def _penalty_parameter_update(self, stop_idx: int) -> None:
 		A_win = self.A[-self.Delta :, :]
 		s_win = as_col(self.s[stop_idx - self.Delta : stop_idx])
 		s_win = np.pad(s_win, (max(0, self.Delta - len(s_win)), 0), "constant")
@@ -149,7 +149,7 @@ class Pearls:
 			self._update_r(sval)
 			self._gradient_descent()
 			self._update_active_set()
-			# rls update
+			self._rls_update()
 			# update dictionary
 			# Save to history
 			self._save_history(idx)
@@ -162,11 +162,11 @@ class Pearls:
 		}
 		return results
 
-	def _update_active_set(self):
+	def _update_active_set(self) -> None:
 		"""Update the set of active pitches"""
 		w_hat_mat = self.w_hat.reshape((self.P, self.H))
 		norms = np.linalg.norm(w_hat_mat, axis=1)
-		self.act = norms > 0
+		self.act = np.where(norms > 0)
 
 	def _save_history(self, idx) -> None:
 		"""Save results
@@ -176,6 +176,17 @@ class Pearls:
 		self.freq_hist[:, idx] = r(self.f_mat[:, 0])
 		self.p1_hist[idx] = self.p1
 		self.p2_hist[idx] = self.p2
+
+	def _rls_update(self) -> None:
+		"""Refine amplitude estimates of active pitches"""
+		act = self.act
+		breakpoint()
+		R_act = self.R[act, :]  # WRONG!!
+		for p_idx in act:
+			gp = self._Gp(p_idx)
+
+			Rp = self.R[gp, gp]
+			Rq = self.R[gp, act]
 
 	def _gradient_descent(self) -> None:
 		"""Perform gradient descent on parameter weights"""
