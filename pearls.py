@@ -61,7 +61,7 @@ class Pearls:
 		"""
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
-		ps = np.array([100, 200, 300, 337.3, 400, 500])
+		ps = np.array([50, 127.15, 200, 300, 400, 500])
 		self.P = len(ps)
 		self.f_mat = np.arange(1, self.H + 1) * as_col(ps)
 		self.f_active = [True] * self.P
@@ -141,7 +141,7 @@ class Pearls:
 		for idx in range(self.L):
 			if idx % 100 == 0:
 				print(f"Sample {idx}/{self.L}")
-				self._penalty_parameter_update(idx + 1)
+			self._penalty_parameter_update(idx + 1)
 			sval = self.s[idx]
 
 			self._increment_time_vars()
@@ -163,11 +163,15 @@ class Pearls:
 		return results
 
 	def _update_active_set(self):
-		w_hat_mat = self.w_hat.reshape((self.H, self.P))
-		norms = np.linalg.norm(w_hat_mat, axis=0)
+		"""Update the set of active pitches"""
+		w_hat_mat = self.w_hat.reshape((self.P, self.H))
+		norms = np.linalg.norm(w_hat_mat, axis=1)
 		self.act = norms > 0
 
 	def _save_history(self, idx) -> None:
+		"""Save results
+		idx: 	Signal sample iteration index
+		"""
 		self.w_hat_hist[:, idx] = r(self.w_hat)
 		self.freq_hist[:, idx] = r(self.f_mat[:, 0])
 		self.p1_hist[idx] = self.p1

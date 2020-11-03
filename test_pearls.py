@@ -64,8 +64,9 @@ def plot_results(
 if __name__ == "__main__":
 	fs = 44100
 	true_H = 3
-	true_freq = 337.3
-	signal = harmonic_signal(f=true_freq, fs=44100, N=5000, H=true_H, A=10)
+	true_freq = 127.15
+	signal = harmonic_signal(f=true_freq, fs=44100, N=3000, H=true_H, A=10)
+
 	P = Pearls(
 		signal=signal,
 		lambda_=0.99,
@@ -73,10 +74,10 @@ if __name__ == "__main__":
 		H=true_H,
 		fs=fs,
 		K_msecs=100,
-		p1=80,
-		p2=5,
-		ss=1e-7,
-		mgi=20,
+		p1=0,
+		p2=0,
+		ss=1e-6,
+		mgi=10,
 		mu=0.1,
 	)
 
