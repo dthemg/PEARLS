@@ -61,7 +61,7 @@ class Pearls:
 		"""
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
-		ps = np.array([50, 127.15, 200, 300, 400, 500])
+		ps = np.array([50, 88.15, 200, 300, 400, 500])
 		self.P = len(ps)
 		self.f_mat = np.arange(1, self.H + 1) * as_col(ps)
 		self.f_active = [True] * self.P
@@ -90,7 +90,7 @@ class Pearls:
 		self.w_hat = np.zeros((n_coef, 1), dtype=self.complex_dtype)
 
 		# Active pitch indicies
-		self.act = np.full(self.P, True)
+		self.act = np.arange(self.P)
 
 		# Initialize result history
 		self.rls_hist = np.zeros((n_coef, self.L), dtype=self.complex_dtype)
@@ -166,7 +166,7 @@ class Pearls:
 		"""Update the set of active pitches"""
 		w_hat_mat = self.w_hat.reshape((self.P, self.H))
 		norms = np.linalg.norm(w_hat_mat, axis=1)
-		self.act = np.where(norms > 0)
+		self.act = np.argwhere(norms > 0)
 
 	def _save_history(self, idx) -> None:
 		"""Save results
@@ -179,14 +179,21 @@ class Pearls:
 
 	def _rls_update(self) -> None:
 		"""Refine amplitude estimates of active pitches"""
-		act = self.act
-		breakpoint()
-		R_act = self.R[act, :]  # WRONG!!
-		for p_idx in act:
-			gp = self._Gp(p_idx)
+		act_idxs = []
+		for p_idxs in self.act:
+			act_idxs.extend(self._Gp(p_idxs[0]))
 
-			Rp = self.R[gp, gp]
-			Rq = self.R[gp, act]
+		R_act = self.R[act_idxs, act_idxs]
+		w_hat_act = self.w_hat[act_idxs]
+
+		for act_p_idx in range(len(self.act)):
+			# CONTINUE HERE!
+			# breakpoint()
+			# gp = self._Gp(act_p_idx)
+
+			# Rp = R_act[gp, gp]
+			# Rq = R_act[gp, act]
+			pass
 
 	def _gradient_descent(self) -> None:
 		"""Perform gradient descent on parameter weights"""
