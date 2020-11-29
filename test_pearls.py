@@ -41,6 +41,7 @@ def plot_results(
 	# Final prediction
 	w_hat_final = w_hat_hist[:, -1].reshape(P.P, P.H)
 	freq_final = r(freq_hist[:, -1])
+	pred_signal = np.zeros(P.L, dtype="complex")
 
 	hs = np.arange(P.H)
 	for i, row in enumerate(w_hat_final):
@@ -64,8 +65,12 @@ def plot_results(
 if __name__ == "__main__":
 	fs = 11000
 	true_H = 3
-	true_freq = 278.2
-	signal = harmonic_signal(f=true_freq, fs=fs, N=5000, H=true_H, A=1)
+	true_freq1 = 278.2
+	true_freq2 = 432.16
+	# The amplitude matters! Probably in the floating point accuracy of _S1 and _S2?! Investigate!
+	signal1 = harmonic_signal(f=true_freq1, fs=fs, N=5000, H=true_H, A=1)
+	# signal2 = harmonic_signal(f=true_freq2, fs=fs, N=2000, H=true_H, A=1000)
+	signal = signal1  # np.concatenate((signal1, signal2))
 
 	P = Pearls(
 		signal=signal,
@@ -83,4 +88,4 @@ if __name__ == "__main__":
 
 	P.initialize_variables(f_int=(100, 500), f_spacing=200)
 	results = P.run_algorithm()
-	plot_results(signal, results, P, true_freq, true_H)
+	plot_results(signal, results, P, true_freq1, true_H)

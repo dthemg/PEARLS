@@ -8,6 +8,7 @@ from utils import c, ct, as_col, as_row, r
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 # http://www.maths.lu.se/fileadmin/maths/personal_staff/Andreas_Jakobsson/openPEARLS.pdf
 # http://lup.lub.lu.se/search/ws/files/26854757/thesis_FilipElvander.pdf
+# file:///C:/Users/david/Downloads/Multi-Pitch_Estimation.pdf
 
 
 class Pearls:
@@ -157,7 +158,8 @@ class Pearls:
 			self._find_active_set()
 			if idx > 50:
 				self._rls_update()
-			# update dictionary
+			if idx % 100 == 0:
+				self.dictionary_update()
 			self._save_history(idx)
 
 		results = {
@@ -173,7 +175,6 @@ class Pearls:
 		"""Update the set of active pitches"""
 		w_hat_mat = self.w_hat.reshape((self.P, self.H))
 		norms = np.linalg.norm(w_hat_mat, axis=1)
-
 		max_norm = max(norms)
 		for p in np.argwhere(norms < self.norm_thresh * max_norm):
 			gp = self._Gp(p)
@@ -231,7 +232,22 @@ class Pearls:
 		return np.arange(self.H * p_idx, self.H * (p_idx + 1))
 
 	def dictionary_update(self):
-		pass
+		"""Refine frequency estimates"""
+		rls_mat = self.rls.reshape((self.P, self.H))
+		norms = np.linalg.norm(rls_mat, axis=1)
+		max_norm = max(norms)
+		sig_pitches = r(np.argwhere(norms > max_norm * 0.05))
+
+		for p in sig_pitches:
+			gp = self._Gp(p)
+
+			# Estimate num harmonics
+			p_rls = rls_mat[p, :]
+			H = np.max(np.argwhere(abs(p_rls) > np.max(abs(p_rls)) * 0.2))
+
+			# breakpoint()
+
+			# freq = self.freq_mat[p, 0]
 
 
 def _S1(arr: np.ndarray, alpha: float) -> np.ndarray:
