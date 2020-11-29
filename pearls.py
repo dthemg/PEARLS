@@ -7,6 +7,7 @@ from utils import c, ct, as_col, as_row, r
 
 # https://dl.acm.org/doi/pdf/10.1109/TASLP.2016.2634118
 # http://www.maths.lu.se/fileadmin/maths/personal_staff/Andreas_Jakobsson/openPEARLS.pdf
+# http://lup.lub.lu.se/search/ws/files/26854757/thesis_FilipElvander.pdf
 
 
 class Pearls:
@@ -54,6 +55,8 @@ class Pearls:
 		self.mgi = mgi
 		self.mu = mu
 
+		self.norm_thresh = 0.01
+
 	def initialize_variables(self, f_int: tuple, f_spacing: float) -> None:
 		"""
 		f_int:      (min, max) frequency search interval
@@ -61,7 +64,7 @@ class Pearls:
 		"""
 		# Initialize frequency matrix as [harmonic, pitch]
 		ps = np.arange(f_int[0], f_int[1] + 0.001, f_spacing, dtype=self.float_dtype)
-		ps = np.array([50, 88.15, 200, 300, 400, 500])
+		ps = np.array([100, 278.2, 300, 400, 500])
 		self.P = len(ps)
 		self.f_mat = np.arange(1, self.H + 1) * as_col(ps)
 		self.f_active = [True] * self.P
@@ -85,6 +88,9 @@ class Pearls:
 		# Initialize RLS filter coefficients
 		n_coef = self.P * self.H
 		self.rls = np.zeros((n_coef, 1), dtype=self.complex_dtype)
+
+		# Initialize RLS smoothing matrix
+		self.I_xi = self.xi * np.eye(self.H)
 
 		# Initialize weights
 		self.w_hat = np.zeros((n_coef, 1), dtype=self.complex_dtype)
@@ -148,10 +154,10 @@ class Pearls:
 			self._update_a(fs_upd)
 			self._update_r(sval)
 			self._gradient_descent()
-			self._update_active_set()
-			self._rls_update()
+			self._find_active_set()
+			if idx > 50:
+				self._rls_update()
 			# update dictionary
-			# Save to history
 			self._save_history(idx)
 
 		results = {
@@ -159,14 +165,20 @@ class Pearls:
 			"freq_hist": self.freq_hist,
 			"p1_hist": self.p1_hist,
 			"p2_hist": self.p2_hist,
+			"rls_hist": self.rls_hist,
 		}
 		return results
 
-	def _update_active_set(self) -> None:
+	def _find_active_set(self) -> None:
 		"""Update the set of active pitches"""
 		w_hat_mat = self.w_hat.reshape((self.P, self.H))
 		norms = np.linalg.norm(w_hat_mat, axis=1)
-		self.act = np.argwhere(norms > 0)
+
+		max_norm = max(norms)
+		for p in np.argwhere(norms < self.norm_thresh * max_norm):
+			gp = self._Gp(p)
+			self.w_hat[gp] = as_col(np.zeros_like(gp))
+		self.act = np.argwhere(norms > self.norm_thresh)
 
 	def _save_history(self, idx) -> None:
 		"""Save results
@@ -174,26 +186,32 @@ class Pearls:
 		"""
 		self.w_hat_hist[:, idx] = r(self.w_hat)
 		self.freq_hist[:, idx] = r(self.f_mat[:, 0])
+		self.rls_hist[:, idx] = r(self.rls)
 		self.p1_hist[idx] = self.p1
 		self.p2_hist[idx] = self.p2
 
 	def _rls_update(self) -> None:
 		"""Refine amplitude estimates of active pitches"""
-		act_idxs = []
-		for p_idxs in self.act:
-			act_idxs.extend(self._Gp(p_idxs[0]))
+		S = []
+		for p in self.act:
+			S.extend(self._Gp(p[0]))  # 0 since column
+		t_rls = np.copy(self.rls)
 
-		R_act = self.R[act_idxs, act_idxs]
-		w_hat_act = self.w_hat[act_idxs]
+		for p in self.act:
+			gp = self._Gp(p)
+			qp = np.setdiff1d(S, gp)
 
-		for act_p_idx in range(len(self.act)):
-			# CONTINUE HERE!
-			# breakpoint()
-			# gp = self._Gp(act_p_idx)
+			rp = self.r[gp] - self.R[np.ix_(gp, qp)] @ t_rls[qp]
 
-			# Rp = R_act[gp, gp]
-			# Rq = R_act[gp, act]
-			pass
+			inv_part = np.linalg.inv(self.R[np.ix_(gp, gp)] + self.I_xi)
+			col_part = rp + self.xi * t_rls[gp]
+
+			self.rls[gp] = inv_part @ col_part
+
+		for p in range(self.P):
+			if p not in self.act:
+				gp = self._Gp(p)
+				self.rls[gp] = as_col(np.zeros_like(gp))
 
 	def _gradient_descent(self) -> None:
 		"""Perform gradient descent on parameter weights"""
@@ -211,6 +229,9 @@ class Pearls:
 		p:		pitch index
 		"""
 		return np.arange(self.H * p_idx, self.H * (p_idx + 1))
+
+	def dictionary_update(self):
+		pass
 
 
 def _S1(arr: np.ndarray, alpha: float) -> np.ndarray:
